@@ -42,7 +42,6 @@ export type Reach = {
   stationId: string;
   outbound: Journey; // 去程：最早抵達
   inbound: Journey; // 回程：最晚出發
-  inboundEarlier?: Journey; // 回程的前一班（建議搭乘）
   stayMinutes: number; // inbound.dep − outbound.arr
 };
 

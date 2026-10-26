@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
-import { computeReach, earliestArrival, latestDeparture, parseTime } from "./csa.ts";
+import { computeReach, earlierInbound, earliestArrival, latestDeparture, parseTime } from "./csa.ts";
 import type { Connection, Options, Timetable, Trip } from "./types.ts";
 
 const t = parseTime;
@@ -45,10 +45,9 @@ describe("小型時刻表", () => {
     assert.equal(rides.get("D")!.alight[4], t("09:10"));
   });
 
-  test("最晚回程與前一班", () => {
-    const { best, earlier } = latestDeparture(tt, opts);
+  test("最晚回程", () => {
+    const best = latestDeparture(tt, opts);
     assert.equal(best.get("C")!.dep, t("17:00"));
-    assert.equal(earlier.get("C")!.dep, t("16:00"));
     // D 16:50 → B 17:20，轉 104（B 17:30）剛好 10 分鐘
     assert.equal(best.get("D")!.dep, t("16:50"));
   });
@@ -59,7 +58,27 @@ describe("小型時刻表", () => {
     assert.equal(d.stayMinutes, t("16:50") - t("09:10"));
     assert.deepEqual(d.outbound.legs.map((l) => l.trainNo), ["101", "203"]);
     assert.deepEqual(d.inbound.legs.map((l) => l.trainNo), ["202", "104"]);
-    assert.deepEqual(reach.get("C")!.inboundEarlier?.legs.map((l) => l.trainNo), ["102"]);
+  });
+
+  test("前一班要比最晚回程更早到家", () => {
+    const reach = new Map(computeReach(tt, opts).map((r) => [r.stationId, r]));
+    // C：最晚 104（18:00 到家），前一班 102（17:00 到家）
+    assert.deepEqual(earlierInbound(tt, opts, reach.get("C")!)?.legs.map((l) => l.trainNo), ["102"]);
+    // D：只有 202 一班可接回 A，沒有更早到家的走法
+    assert.equal(earlierInbound(tt, opts, reach.get("D")!), undefined);
+  });
+
+  test("接上同一班車回家的不算前一班", () => {
+    // 回程只有 9 次能回 A；8 次雖然更早從 B 出發，但也是到 C 接 9 次，到家時間一樣
+    const join = makeTimetable([
+      { no: "1", stops: [["A", "09:00"], ["B", "09:30"]] },
+      { no: "8", stops: [["B", "16:00"], ["C", "16:20"]] },
+      { no: "7", stops: [["B", "16:30"], ["C", "16:50"]] },
+      { no: "9", stops: [["C", "17:00"], ["A", "17:40"]] },
+    ]);
+    const b = computeReach(join, opts).find((r) => r.stationId === "B")!;
+    assert.equal(b.inbound.dep, t("16:30"));
+    assert.equal(earlierInbound(join, opts, b), undefined);
   });
 
   test("對號車與只搭區間車", () => {
@@ -192,7 +211,7 @@ describe("真實時刻表", { skip: real ? false : "沒有 docs/data，先執行
         assert.equal(rides.size, expectedArr.size - 1, `${origin} 可抵達站數`);
 
         const expectedDep = bruteLatest(tt, opts);
-        const { best } = latestDeparture(tt, opts);
+        const best = latestDeparture(tt, opts);
         for (const [s, time] of expectedDep) {
           assert.equal(best.get(s)?.dep, time, `${s} → ${origin} 最晚出發`);
         }
@@ -205,7 +224,8 @@ describe("真實時刻表", { skip: real ? false : "沒有 docs/data，先執行
     for (const origin of origins) {
       const opts: Options = { origin, startTime: t("09:00"), endTime: t("18:00") };
       for (const r of computeReach(tt, opts)) {
-        for (const j of [r.outbound, r.inbound, ...(r.inboundEarlier ? [r.inboundEarlier] : [])]) {
+        const earlier = earlierInbound(tt, opts, r);
+        for (const j of [r.outbound, r.inbound, ...(earlier ? [earlier] : [])]) {
           assert.ok(j.dep >= opts.startTime && j.arr <= opts.endTime);
           for (let i = 0; i + 1 < j.legs.length; i++) {
             assert.equal(j.legs[i].to, j.legs[i + 1].from);
@@ -216,7 +236,12 @@ describe("真實時刻表", { skip: real ? false : "沒有 docs/data，先執行
         assert.equal(r.outbound.legs.at(-1)!.to, r.stationId);
         assert.equal(r.inbound.legs[0].from, r.stationId);
         assert.equal(r.inbound.legs.at(-1)!.to, origin);
-        if (r.inboundEarlier) assert.ok(r.inboundEarlier.dep < r.inbound.dep);
+        if (earlier) {
+          assert.ok(earlier.arr < r.inbound.arr, "前一班更早到家");
+          assert.ok(earlier.dep - r.outbound.arr >= 5, "前一班來得及搭");
+          assert.equal(earlier.legs[0].from, r.stationId);
+          assert.equal(earlier.legs.at(-1)!.to, origin);
+        }
       }
     }
   });

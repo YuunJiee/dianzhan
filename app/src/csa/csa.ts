@@ -68,18 +68,11 @@ export function earliestArrival(tt: Timetable, opts: Options): Map<string, Ride>
 
 type Departure = { dep: number; ride: Ride };
 
-/**
- * 回程：每一站最晚幾點出發，仍能在 endTime 前回到 origin。
- * 除了最晚的一班，另外記下不同車次的前一班，作為建議搭乘。
- */
-export function latestDeparture(
-  tt: Timetable,
-  opts: Options,
-): { best: Map<string, Departure>; earlier: Map<string, Departure> } {
+/** 回程：每一站最晚幾點出發，仍能在 endTime 前回到 origin。 */
+export function latestDeparture(tt: Timetable, opts: Options): Map<string, Departure> {
   const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
   const unreservedOnly = opts.unreservedOnly ?? false;
   const best = new Map<string, Departure>();
-  const earlier = new Map<string, Departure>();
   const alighted = new Map<number, Connection>(); // 車次 → 下車的連結
 
   // 依抵達時間由晚到早掃描
@@ -104,21 +97,11 @@ export function latestDeparture(
     if (!alight) continue;
     if (from === opts.origin) continue;
 
-    const candidate: Departure = { dep, ride: { board: c, alight } };
-    const top = best.get(from);
-    if (!top) {
-      best.set(from, candidate);
-    } else if (top.ride.board[0] === trip) {
-      if (dep > top.dep) best.set(from, candidate);
-    } else if (dep > top.dep) {
-      earlier.set(from, top);
-      best.set(from, candidate);
-    } else if (dep < top.dep && dep > (earlier.get(from)?.dep ?? -Infinity)) {
-      // 同一分鐘開出的其他車次（例如反方向）不算前一班
-      earlier.set(from, candidate);
+    if (dep > (best.get(from)?.dep ?? -Infinity)) {
+      best.set(from, { dep, ride: { board: c, alight } });
     }
   }
-  return { best, earlier };
+  return best;
 }
 
 function outboundJourney(tt: Timetable, rides: Map<string, Ride>, origin: string, target: string): Journey {
@@ -145,8 +128,9 @@ function inboundJourney(tt: Timetable, best: Map<string, Departure>, first: Depa
 
 /** 從 origin 出發，列出所有當天可以來回的車站（可停留時間至少為最短轉乘時間）。 */
 export function computeReach(tt: Timetable, opts: Options): Reach[] {
+  const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
   const rides = earliestArrival(tt, opts);
-  const { best, earlier } = latestDeparture(tt, opts);
+  const best = latestDeparture(tt, opts);
   const result: Reach[] = [];
 
   for (const [stationId, ride] of rides) {
@@ -155,19 +139,28 @@ export function computeReach(tt: Timetable, opts: Options): Reach[] {
     if (!back) continue;
     // 至少要留最短轉乘時間，才來得及換月台搭回程
     const stay = back.dep - ride.alight[4];
-    if (stay < (opts.minTransfer ?? DEFAULT_MIN_TRANSFER)) continue;
+    if (stay < minTransfer) continue;
 
-    const before = earlier.get(stationId);
     result.push({
       stationId,
       outbound: outboundJourney(tt, rides, opts.origin, stationId),
       inbound: inboundJourney(tt, best, back, opts.origin),
-      inboundEarlier:
-        before && before.dep >= ride.alight[4] ? inboundJourney(tt, best, before, opts.origin) : undefined,
       stayMinutes: stay,
     });
   }
   return result.sort((a, b) => b.stayMinutes - a.stayMinutes);
+}
+
+/**
+ * 建議搭的前一班：比最晚回程「更早回到家」的最晚走法。
+ * 錯過這班時，最晚回程仍可當備案；只在看單一車站時計算。
+ */
+export function earlierInbound(tt: Timetable, opts: Options, reach: Reach): Journey | undefined {
+  const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
+  const best = latestDeparture(tt, { ...opts, endTime: reach.inbound.arr - 1 });
+  const back = best.get(reach.stationId);
+  if (!back || back.dep - reach.outbound.arr < minTransfer) return undefined;
+  return inboundJourney(tt, best, back, opts.origin);
 }
 
 export function formatTime(minutes: number): string {

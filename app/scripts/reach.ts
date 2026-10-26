@@ -9,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
-import { computeReach, formatTime, parseTime } from "../src/csa/csa.ts";
+import { computeReach, earlierInbound, formatTime, parseTime } from "../src/csa/csa.ts";
 import type { Journey, Station, Timetable } from "../src/csa/types.ts";
 
 const dataDir = new URL("../../docs/data/", import.meta.url);
@@ -54,12 +54,13 @@ if (!file) {
 const tt: Timetable = readJson(file);
 
 const startedAt = performance.now();
-const reach = computeReach(tt, {
+const opts = {
   origin: origin.id,
   startTime: parseTime(values.start!),
   endTime: parseTime(values.end!),
   unreservedOnly: values.local,
-});
+};
+const reach = computeReach(tt, opts);
 const elapsed = performance.now() - startedAt;
 
 const duration = (minutes: number) => `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
@@ -81,9 +82,12 @@ if (values.to) {
   }
   console.log(`\n${target.name}：可停留 ${duration(r.stayMinutes)}`);
   console.log(`\n  去程（最早 ${formatTime(r.outbound.arr)} 抵達，轉乘 ${r.outbound.legs.length - 1} 次）\n      ${describe(r.outbound)}`);
-  console.log(`\n  回程（最晚 ${formatTime(r.inbound.dep)} 出發，轉乘 ${r.inbound.legs.length - 1} 次）\n      ${describe(r.inbound)}`);
-  if (r.inboundEarlier) {
-    console.log(`\n  建議搭前一班（${formatTime(r.inboundEarlier.dep)} 出發）\n      ${describe(r.inboundEarlier)}`);
+  console.log(`\n  回程（最晚 ${formatTime(r.inbound.dep)} 出發、${formatTime(r.inbound.arr)} 到家，轉乘 ${r.inbound.legs.length - 1} 次）\n      ${describe(r.inbound)}`);
+  const earlier = earlierInbound(tt, opts, r);
+  if (earlier) {
+    console.log(`\n  建議搭前一班（${formatTime(earlier.dep)} 出發、${formatTime(earlier.arr)} 到家）\n      ${describe(earlier)}`);
+  } else {
+    console.log("\n  沒有更早回到家的班次，最晚回程就是唯一選擇");
   }
   process.exit(0);
 }
