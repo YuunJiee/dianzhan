@@ -179,12 +179,15 @@ const DAY_END = 30 * 60;
 
 export type Infeasibility = {
   noOutbound: boolean; // 出發後當天沒有車能到
-  leaveBy?: number; // 要在這個時間前出發才來得及當天來回
+  leaveBy?: number; // 要在這個時間前出發，才能停留 minStay 以上
   earliestHome?: number; // 就算一到就回頭，最早幾點到家
 };
 
-/** 指定目的地無法當天來回時，說明差在哪裡，讓使用者決定提早出門或改成兩天一夜。 */
-export function explainInfeasible(tt: Timetable, opts: Options, stationId: string): Infeasibility {
+/**
+ * 指定目的地無法當天來回（或停留不到 minStay）時，說明差在哪裡，
+ * 讓使用者決定提早出門或改成兩天一夜。
+ */
+export function explainInfeasible(tt: Timetable, opts: Options, stationId: string, minStay = 0): Infeasibility {
   const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
   const unreservedOnly = opts.unreservedOnly ?? false;
   const result: Infeasibility = { noOutbound: false };
@@ -202,13 +205,13 @@ export function explainInfeasible(tt: Timetable, opts: Options, stationId: strin
     if (home) result.earliestHome = home.alight[4];
   }
 
-  // 最晚的回程車，往回推最晚幾點要從出發站出發
+  // 最晚的回程車，往回推最晚幾點要從出發站出發，才能停留 minStay 以上
   const lastBack = latestDeparture(tt, { ...opts, startTime: DAY_START }).get(stationId);
   if (lastBack) {
     const leave = latestDeparture(tt, {
       origin: stationId,
       startTime: DAY_START,
-      endTime: lastBack.dep - minTransfer,
+      endTime: lastBack.dep - Math.max(minTransfer, minStay),
       unreservedOnly,
     }).get(opts.origin);
     if (leave && leave.dep < opts.startTime) result.leaveBy = leave.dep;

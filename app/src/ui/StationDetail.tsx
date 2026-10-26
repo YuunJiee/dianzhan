@@ -6,22 +6,24 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { earlierInbound, explainInfeasible } from "../csa/csa.ts";
 import type { Journey, Options, Reach, Timetable } from "../csa/types.ts";
 import { formatDuration, formatTime } from "./format.ts";
-import { colors, stayColor } from "./theme.ts";
+import { colors, stayColor, unreachableColor } from "./theme.ts";
 
 type Props = {
   stationId: string | undefined;
   tt: Timetable;
   opts: Options;
   reach: Reach | undefined;
+  minStay: number;
   nameOf: (id: string) => string;
   onClose: () => void;
 };
 
-export function StationDetail({ stationId, tt, opts, reach, nameOf, onClose }: Props) {
+export function StationDetail({ stationId, tt, opts, reach, minStay, nameOf, onClose }: Props) {
   const earlier = useMemo(() => (reach ? earlierInbound(tt, opts, reach) : undefined), [tt, opts, reach]);
   const why = useMemo(
-    () => (stationId && !reach ? explainInfeasible(tt, opts, stationId) : undefined),
-    [tt, opts, stationId, reach],
+    () =>
+      stationId && (!reach || reach.stayMinutes < minStay) ? explainInfeasible(tt, opts, stationId, minStay) : undefined,
+    [tt, opts, stationId, reach, minStay],
   );
 
   return (
@@ -46,12 +48,27 @@ export function StationDetail({ stationId, tt, opts, reach, nameOf, onClose }: P
           <ScrollView contentContainerStyle={styles.body}>
             {reach ? (
               <>
-                <View style={[styles.verdict, { borderColor: stayColor(reach.stayMinutes) }]}>
-                  <Text style={styles.verdictLabel}>可以當天來回，可停留</Text>
+                <View
+                  style={[
+                    styles.verdict,
+                    { borderColor: reach.stayMinutes >= minStay ? stayColor(reach.stayMinutes) : unreachableColor },
+                  ]}
+                >
+                  <Text style={styles.verdictLabel}>
+                    {reach.stayMinutes >= minStay ? "可以當天來回，可停留" : "可以當天來回，但只能停留"}
+                  </Text>
                   <Text style={styles.verdictValue}>{formatDuration(reach.stayMinutes)}</Text>
                   <Text style={styles.verdictSub}>
                     {formatTime(reach.outbound.arr)} 抵達・{formatTime(reach.inbound.dep)} 搭回程
                   </Text>
+                  {reach.stayMinutes < minStay && (
+                    <Text style={styles.reason}>
+                      少於你設定的至少停留 {formatDuration(minStay)}；
+                      {why?.leaveBy !== undefined
+                        ? `最晚 ${formatTime(why.leaveBy)} 出門，就能停留 ${formatDuration(minStay)} 以上。`
+                        : `就算提早出門也待不到 ${formatDuration(minStay)}。`}
+                    </Text>
+                  )}
                 </View>
                 <JourneyCard title="去程（最早抵達）" journey={reach.outbound} nameOf={nameOf} />
                 <JourneyCard title="回程（最晚一班）" journey={reach.inbound} nameOf={nameOf} />
@@ -78,7 +95,9 @@ export function StationDetail({ stationId, tt, opts, reach, nameOf, onClose }: P
                     <Text style={styles.reason}>就算一到就回頭，最早 {formatTime(why.earliestHome)} 才能到家。</Text>
                   )}
                   {why.leaveBy !== undefined && (
-                    <Text style={styles.reason}>最晚要在 {formatTime(why.leaveBy)} 出門，才趕得上當天來回。</Text>
+                    <Text style={styles.reason}>
+                      最晚要在 {formatTime(why.leaveBy)} 出門，才能停留 {formatDuration(minStay)} 以上。
+                    </Text>
                   )}
                   {why.leaveBy === undefined && (
                     <Text style={styles.reason}>就算提早出門也來不及，可以考慮改成兩天一夜。</Text>

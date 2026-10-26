@@ -8,6 +8,7 @@ export type Settings = {
   startTime: number; // 分鐘
   endTime: number;
   unreservedOnly: boolean;
+  minStay: number; // 至少停留（分鐘），不到的車站不列入
 };
 
 const KEY = "settings.v1";
@@ -17,6 +18,7 @@ export const defaultSettings: Settings = {
   startTime: 9 * 60,
   endTime: 18 * 60,
   unreservedOnly: false,
+  minStay: 60,
 };
 
 export function useSettings(): [Settings, (patch: Partial<Settings>) => void, boolean] {

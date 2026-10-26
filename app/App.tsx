@@ -14,6 +14,7 @@ import { colors } from "./src/ui/theme.ts";
 import { useSettings } from "./src/ui/useSettings.ts";
 
 const TIME_STEP = 30;
+const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 
 export default function App() {
   const stations = useMemo(() => getStations(), []);
@@ -42,7 +43,10 @@ export default function App() {
     }),
     [settings],
   );
-  const reach = useMemo(() => (tt ? computeReach(tt, opts) : []), [tt, opts]);
+  // allReach 含停留不足的車站（結果頁要用）；reach 只留達到「至少停留」的車站
+  const allReach = useMemo(() => (tt ? computeReach(tt, opts) : []), [tt, opts]);
+  const allById = useMemo(() => new Map(allReach.map((r) => [r.stationId, r])), [allReach]);
+  const reach = useMemo(() => allReach.filter((r) => r.stayMinutes >= settings.minStay), [allReach, settings.minStay]);
   const reachById = useMemo(() => new Map(reach.map((r) => [r.stationId, r])), [reach]);
 
   const shiftTime = (key: "startTime" | "endTime", delta: number) => {
@@ -106,6 +110,21 @@ export default function App() {
             />
           </View>
         </View>
+
+        <View style={styles.minStayRow}>
+          <Text style={styles.minStayLabel}>至少停留</Text>
+          {MIN_STAY_OPTIONS.map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => updateSettings({ minStay: m })}
+              style={[styles.minStayChip, settings.minStay === m && styles.minStayChipOn]}
+            >
+              <Text style={[styles.minStayText, settings.minStay === m && styles.minStayTextOn]}>
+                {m < 60 ? `${m}分` : `${m / 60}小時`}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       <View style={styles.summaryRow}>
@@ -145,7 +164,8 @@ export default function App() {
         stationId={selected}
         tt={tt}
         opts={opts}
-        reach={selected ? reachById.get(selected) : undefined}
+        reach={selected ? allById.get(selected) : undefined}
+        minStay={settings.minStay}
         nameOf={nameOf}
         onClose={() => setSelected(undefined)}
       />
@@ -201,6 +221,12 @@ const styles = StyleSheet.create({
   stepperValue: { color: "#fff", fontSize: 18, fontWeight: "600", fontVariant: ["tabular-nums"] },
   localToggle: { marginLeft: "auto", alignItems: "center" },
   localLabel: { fontSize: 12, color: "#c9d6ea" },
+  minStayRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 6 },
+  minStayLabel: { fontSize: 12, color: "#c9d6ea", marginRight: 2 },
+  minStayChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.12)" },
+  minStayChipOn: { backgroundColor: "#fff" },
+  minStayText: { color: "#fff", fontSize: 13 },
+  minStayTextOn: { color: colors.accent, fontWeight: "700" },
   summaryRow: {
     flexDirection: "row",
     alignItems: "center",

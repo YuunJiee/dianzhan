@@ -123,6 +123,9 @@ describe("小型時刻表", () => {
     assert.equal(early.noOutbound, false);
     assert.equal(early.earliestHome, t("17:00"));
     assert.equal(early.leaveBy, undefined);
+
+    // 10:30 出門想在 C 待 7 小時：最晚回程 104 17:00，要 10:00 前到 C，得搭 09:00 的 1 次
+    assert.equal(explainInfeasible(tt, { ...opts, startTime: t("10:30") }, "C", 7 * 60).leaveBy, t("09:00"));
   });
 
   test("時間不夠就無法來回", () => {

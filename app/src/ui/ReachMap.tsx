@@ -54,7 +54,7 @@ export function ReachMap({ stations, originId, reachById, onSelect }: Props) {
         ))}
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: unreachableColor }]} />
-          <Text style={styles.legendText}>無法來回</Text>
+          <Text style={styles.legendText}>停留不足或無法來回</Text>
         </View>
       </View>
     </View>
