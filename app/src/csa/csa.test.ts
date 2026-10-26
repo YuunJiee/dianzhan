@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
-import { computeReach, earlierInbound, earliestArrival, latestDeparture, parseTime } from "./csa.ts";
+import { computeReach, earlierInbound, earliestArrival, explainInfeasible, latestDeparture, parseTime } from "./csa.ts";
 import type { Connection, Options, Timetable, Trip } from "./types.ts";
 
 const t = parseTime;
@@ -110,6 +110,19 @@ describe("小型時刻表", () => {
       { no: "2", stops: [["B", "09:33"], ["A", "10:00"]] },
     ]);
     assert.equal(computeReach(quick, opts).length, 0);
+  });
+
+  test("無法來回時說明差在哪", () => {
+    // 10:30 才出門：往 C 的 101、1、103 都已開走，當天沒車可到；要來回得在 10:00 前出門搭 103
+    const late = explainInfeasible(tt, { ...opts, startTime: t("10:30") }, "C");
+    assert.equal(late.noOutbound, true);
+    assert.equal(late.leaveBy, t("10:00"));
+
+    // 16:30 前要到家：最早的回程 102 也要 17:00 才到家，再早出門也沒用
+    const early = explainInfeasible(tt, { ...opts, endTime: t("16:30") }, "C");
+    assert.equal(early.noOutbound, false);
+    assert.equal(early.earliestHome, t("17:00"));
+    assert.equal(early.leaveBy, undefined);
   });
 
   test("時間不夠就無法來回", () => {

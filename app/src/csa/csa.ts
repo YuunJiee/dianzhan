@@ -68,6 +68,17 @@ export function earliestArrival(tt: Timetable, opts: Options): Map<string, Ride>
 
 type Departure = { dep: number; ride: Ride };
 
+// 依抵達時間由晚到早排序的連結；同一份時刻表只排一次
+const byArrivalCache = new WeakMap<Timetable, Connection[]>();
+function connectionsByArrival(tt: Timetable): Connection[] {
+  let sorted = byArrivalCache.get(tt);
+  if (!sorted) {
+    sorted = [...tt.connections].sort((a, b) => b[4] - a[4] || b[3] - a[3]);
+    byArrivalCache.set(tt, sorted);
+  }
+  return sorted;
+}
+
 /** 回程：每一站最晚幾點出發，仍能在 endTime 前回到 origin。 */
 export function latestDeparture(tt: Timetable, opts: Options): Map<string, Departure> {
   const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
@@ -75,8 +86,7 @@ export function latestDeparture(tt: Timetable, opts: Options): Map<string, Depar
   const best = new Map<string, Departure>();
   const alighted = new Map<number, Connection>(); // 車次 → 下車的連結
 
-  // 依抵達時間由晚到早掃描
-  const byArrival = [...tt.connections].sort((a, b) => b[4] - a[4] || b[3] - a[3]);
+  const byArrival = connectionsByArrival(tt);
 
   for (const c of byArrival) {
     const [trip, from, to, dep, arr] = c;
@@ -161,6 +171,49 @@ export function earlierInbound(tt: Timetable, opts: Options, reach: Reach): Jour
   const back = best.get(reach.stationId);
   if (!back || back.dep - reach.outbound.arr < minTransfer) return undefined;
   return inboundJourney(tt, best, back, opts.origin);
+}
+
+// 「整天」的時間範圍，用來找出時間範圍外的替代方案（跨午夜的車次可到 30:00）
+const DAY_START = 0;
+const DAY_END = 30 * 60;
+
+export type Infeasibility = {
+  noOutbound: boolean; // 出發後當天沒有車能到
+  leaveBy?: number; // 要在這個時間前出發才來得及當天來回
+  earliestHome?: number; // 就算一到就回頭，最早幾點到家
+};
+
+/** 指定目的地無法當天來回時，說明差在哪裡，讓使用者決定提早出門或改成兩天一夜。 */
+export function explainInfeasible(tt: Timetable, opts: Options, stationId: string): Infeasibility {
+  const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
+  const unreservedOnly = opts.unreservedOnly ?? false;
+  const result: Infeasibility = { noOutbound: false };
+
+  const arrive = earliestArrival(tt, { ...opts, endTime: DAY_END }).get(stationId);
+  if (!arrive) {
+    result.noOutbound = true;
+  } else {
+    const home = earliestArrival(tt, {
+      origin: stationId,
+      startTime: arrive.alight[4] + minTransfer,
+      endTime: DAY_END,
+      unreservedOnly,
+    }).get(opts.origin);
+    if (home) result.earliestHome = home.alight[4];
+  }
+
+  // 最晚的回程車，往回推最晚幾點要從出發站出發
+  const lastBack = latestDeparture(tt, { ...opts, startTime: DAY_START }).get(stationId);
+  if (lastBack) {
+    const leave = latestDeparture(tt, {
+      origin: stationId,
+      startTime: DAY_START,
+      endTime: lastBack.dep - minTransfer,
+      unreservedOnly,
+    }).get(opts.origin);
+    if (leave && leave.dep < opts.startTime) result.leaveBy = leave.dep;
+  }
+  return result;
 }
 
 export function formatTime(minutes: number): string {

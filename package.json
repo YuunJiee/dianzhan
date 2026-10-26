@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test app/src/csa/*.test.ts",
-    "reach": "node app/scripts/reach.ts"
+    "test": "npm --prefix app test",
+    "reach": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON app/scripts/reach.ts"
   }
 }
