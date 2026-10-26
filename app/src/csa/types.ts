@@ -40,9 +40,12 @@ export type Journey = {
 
 export type Reach = {
   stationId: string;
-  outbound: Journey; // 去程：最早抵達
-  inbound: Journey; // 回程：最晚出發
-  stayMinutes: number; // inbound.dep − outbound.arr
+  arrivalTime: number; // 最早抵達時間
+  returnTime: number; // 最晚回程出發時間
+  stayMinutes: number; // returnTime − arrivalTime
+  // 完整路線第一次讀取時才計算（地圖上色與排序用不到，省下大部分計算時間）
+  readonly outbound: Journey; // 去程：在最早抵達的前提下最晚出門
+  readonly inbound: Journey; // 回程：在最晚出發的前提下最早到家
 };
 
 export type Options = {

@@ -59,7 +59,7 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, nameOf, onC
                   </Text>
                   <Text style={styles.verdictValue}>{formatDuration(reach.stayMinutes)}</Text>
                   <Text style={styles.verdictSub}>
-                    {formatTime(reach.outbound.arr)} 抵達・{formatTime(reach.inbound.dep)} 搭回程
+                    {formatTime(reach.arrivalTime)} 抵達・{formatTime(reach.returnTime)} 搭回程
                   </Text>
                   {reach.stayMinutes < minStay && (
                     <Text style={styles.reason}>

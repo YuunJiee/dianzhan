@@ -37,8 +37,8 @@ export function ReachList({ reach, nameOf, onSelect }: Props) {
               {transfers > 0 && <Text style={styles.sub}>轉乘 {transfers} 次</Text>}
             </View>
             <Text style={styles.cell}>{formatDurationShort(item.outbound.arr - item.outbound.dep)}</Text>
-            <Text style={styles.cell}>{formatTime(item.outbound.arr)}</Text>
-            <Text style={styles.cell}>{formatTime(item.inbound.dep)}</Text>
+            <Text style={styles.cell}>{formatTime(item.arrivalTime)}</Text>
+            <Text style={styles.cell}>{formatTime(item.returnTime)}</Text>
           </Pressable>
         );
       }}

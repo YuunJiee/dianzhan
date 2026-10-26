@@ -104,6 +104,23 @@ describe("小型時刻表", () => {
     assert.deepEqual(r.inbound.legs.map((l) => `${l.trainNo}:${l.to}`), ["301:A"]);
   });
 
+  test("去程盡量晚出門、回程盡量早到家，不在轉乘站空等", () => {
+    // 去程：慢車 11 次 08:00 就能接上 X 的 13 次，但快車 12 次 09:30 出發也接得上，應該建議 12 次
+    // 回程：從 Y 搭 21 次到 X 後，22 次 15:10 就能回家，不該等到最後的 23 次 16:50
+    const wait = makeTimetable([
+      { no: "11", stops: [["A", "08:00"], ["X", "09:40"]] },
+      { no: "12", stops: [["A", "09:30"], ["X", "10:00"]] },
+      { no: "13", stops: [["X", "10:10"], ["Y", "10:40"]] },
+      { no: "21", stops: [["Y", "14:30"], ["X", "15:00"]] },
+      { no: "22", stops: [["X", "15:10"], ["A", "15:40"]] },
+      { no: "23", stops: [["X", "16:50"], ["A", "17:20"]] },
+    ]);
+    const y = computeReach(wait, opts).find((r) => r.stationId === "Y")!;
+    assert.deepEqual(y.outbound.legs.map((l) => l.trainNo), ["12", "13"]);
+    assert.deepEqual(y.inbound.legs.map((l) => l.trainNo), ["21", "22"]);
+    assert.equal(y.stayMinutes, t("14:30") - t("10:40"));
+  });
+
   test("停留不到最短轉乘時間，不算可以來回", () => {
     const quick = makeTimetable([
       { no: "1", stops: [["A", "09:00"], ["B", "09:30"]] },
@@ -235,6 +252,20 @@ describe("真實時刻表", { skip: real ? false : "沒有 docs/data，先執行
       }
     });
   }
+
+  test("去程是同樣抵達時間下最晚出門的走法，回程是同樣出發時間下最早到家的走法", () => {
+    for (const origin of origins.slice(0, 10)) {
+      const opts: Options = { origin, startTime: t("09:00"), endTime: t("18:00") };
+      for (const r of computeReach(tt, opts)) {
+        // 暴力法：從家出發、在 outbound.arr 前抵達車站，最晚幾點出門
+        const latestLeave = bruteLatest(tt, { origin: r.stationId, startTime: opts.startTime, endTime: r.outbound.arr });
+        assert.equal(r.outbound.dep, latestLeave.get(origin), `${origin} → ${r.stationId} 最晚出門`);
+        // 暴力法：在 inbound.dep 從車站出發，最早幾點到家
+        const earliestHome = bruteEarliest(tt, { origin: r.stationId, startTime: r.inbound.dep, endTime: t("30:00") });
+        assert.equal(r.inbound.arr, earliestHome.get(origin), `${r.stationId} → ${origin} 最早到家`);
+      }
+    }
+  });
 
   test("路線本身合理：每段接得上、轉乘時間足夠、時間在範圍內", () => {
     for (const origin of origins) {
