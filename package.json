@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test app/src/csa/*.test.ts",
+    "reach": "node app/scripts/reach.ts"
+  }
+}
