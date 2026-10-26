@@ -14,6 +14,7 @@ import { colors } from "./src/ui/theme.ts";
 import { useSettings } from "./src/ui/useSettings.ts";
 
 const TIME_STEP = 30;
+const DATE_RANGE_DAYS = 30; // 只顯示一個月內的日期，和台鐵開放訂票的範圍相當
 const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 
 export default function App() {
@@ -23,7 +24,7 @@ export default function App() {
 
   const dates = useMemo(() => {
     const all = getDates();
-    const upcoming = all.filter((d) => d >= today());
+    const upcoming = all.filter((d) => d >= today() && d <= today(DATE_RANGE_DAYS));
     return upcoming.length > 0 ? upcoming : all;
   }, []);
 

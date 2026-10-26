@@ -23,9 +23,10 @@ export function formatDate(date: string): string {
   return `${m}/${d}（${weekday}）`;
 }
 
-/** 今天的 YYYY-MM-DD（手機的當地時間） */
-export function today(): string {
+/** 今天起第 offset 天的 YYYY-MM-DD（手機的當地時間） */
+export function today(offset = 0): string {
   const now = new Date();
+  now.setDate(now.getDate() + offset);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }

@@ -6,14 +6,15 @@
 - timetable-<hash>.json            一份時刻表（內容相同的日期共用同一檔）
 
 用法：
-  python build.py                  抓所有可查詢的日期
-  python build.py --days 3         只抓前 3 天（開發用）
+  python build.py                  抓今天起 31 天（約一個月，和台鐵開放訂票的範圍相當）
+  python build.py --days 3         只抓 3 天（開發用）
   python build.py --offline        只用 raw/ 已下載的檔案，不連 TDX
 """
 
 import argparse
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -24,6 +25,14 @@ OUT = ROOT.parent / "docs" / "data"
 UNRESERVED_TYPE_CODES = {"6", "10"}
 # ServiceType 1 = 一般列車；4 = 專開／觀光列車（不單售車票），排除
 PUBLIC_SERVICE_TYPE = 1
+DEFAULT_DAYS = 31
+TAIPEI = timezone(timedelta(hours=8))
+
+
+def upcoming(dates: list[str], days: int) -> list[str]:
+    """今天（台灣時間）起的前 days 天；TDX 的清單會包含昨天。"""
+    today = datetime.now(TAIPEI).date().isoformat()
+    return [d for d in sorted(dates) if d >= today][:days]
 
 
 def to_minutes(hhmm: str) -> int:
@@ -102,16 +111,14 @@ def write_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
-def fetch_raw(days: int | None) -> list[str]:
+def fetch_raw(days: int) -> list[str]:
     """從 TDX 下載車站與每日時刻表到 raw/，回傳日期清單。"""
     from tdx import TdxClient
 
     client = TdxClient()
     RAW.mkdir(exist_ok=True)
     write_json(RAW / "stations.json", client.get("/v3/Rail/TRA/Station"))
-    dates = client.get("/v3/Rail/TRA/DailyTrainTimetable/TrainDates")["TrainDates"]
-    if days:
-        dates = dates[:days]
+    dates = upcoming(client.get("/v3/Rail/TRA/DailyTrainTimetable/TrainDates")["TrainDates"], days)
     for d in dates:
         print(f"下載 {d} 時刻表")
         write_json(RAW / f"timetable-{d}.json", client.get(f"/v3/Rail/TRA/DailyTrainTimetable/TrainDate/{d}"))
@@ -120,14 +127,12 @@ def fetch_raw(days: int | None) -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--days", type=int, help="只處理前幾天")
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"抓今天起幾天（預設 {DEFAULT_DAYS}）")
     parser.add_argument("--offline", action="store_true", help="只用 raw/ 已下載的檔案")
     args = parser.parse_args()
 
     if args.offline:
-        dates = sorted(p.stem.removeprefix("timetable-") for p in RAW.glob("timetable-*.json"))
-        if args.days:
-            dates = dates[: args.days]
+        dates = upcoming([p.stem.removeprefix("timetable-") for p in RAW.glob("timetable-*.json")], args.days)
     else:
         dates = fetch_raw(args.days)
 
