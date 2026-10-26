@@ -23,4 +23,4 @@
 - 每次修改保持小步：一個功能一個 commit，完成後確認 Expo Go 可正常執行。
 
 ## 目前迭代
-I0：資料與演算法（見規格書「開發迭代」）
+I1：地圖 App（見規格書「開發迭代」）。I0 已完成：pipeline/ 產生 docs/data/，CSA 在 app/src/csa/（npm test、npm run reach）。
