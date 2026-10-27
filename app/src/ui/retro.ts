@@ -6,12 +6,6 @@ export function rocDateStamp(iso: string): string {
   return `${y - 1911}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")}`;
 }
 
-/** 「115年10月27日」 */
-export function rocDateLong(iso: string): string {
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  return `${y - 1911}年${m}月${d}日`;
-}
-
 /** 每個車站的章蓋下去的角度固定（-14° ～ 14°），同一站每次看起來一樣，不同站各有歪斜。 */
 export function stampAngle(stationId: string): number {
   let h = 0;

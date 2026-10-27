@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
 
-import { rocDateLong, rocDateStamp, stampAngle } from "./retro.ts";
+import { rocDateStamp, stampAngle } from "./retro.ts";
 import { StationStamp } from "./StationStamp.tsx";
 import { colors, fonts } from "./theme.ts";
 import { Ticket } from "./Ticket.tsx";
@@ -13,12 +13,13 @@ type Props = {
   stationId: string;
   name: string;
   timestamp: string;
-  first: boolean; // 第一次來這站
+  visitNumber: number; // 這是第幾次來這站（1 = 第一次）
+  companions: string;
   litCount: number;
   total: number;
 };
 
-export function StampReveal({ stationId, name, timestamp, first, litCount, total }: Props) {
+export function StampReveal({ stationId, name, timestamp, visitNumber, companions, litCount, total }: Props) {
   const press = useRef(new Animated.Value(0)).current;
   const angle = stampAngle(stationId);
 
@@ -61,10 +62,13 @@ export function StampReveal({ stationId, name, timestamp, first, litCount, total
           </View>
         }
       >
-        <Text style={styles.small}>乘車日期　{rocDateLong(timestamp)}</Text>
+        {/* 日期只在紀念章上出現一次；票面放章上沒有的資訊 */}
+        <Text style={styles.status}>{visitNumber === 1 ? "新車站點亮" : `第 ${visitNumber} 次來`}</Text>
         <Text style={[styles.name, name.length >= 3 && styles.nameLong]}>{name}</Text>
-        <Text style={styles.status}>{first ? "新車站點亮" : "打卡完成"}</Text>
-        <Text style={styles.dateStamp}>{rocDateStamp(timestamp)}</Text>
+        <Text style={styles.detail}>
+          {timestamp.slice(11, 16)}
+          {companions ? `・和 ${companions}` : ""}
+        </Text>
       </Ticket>
       <Animated.View style={[styles.stamp, stampStyle]} pointerEvents="none">
         <StationStamp name={name} date={rocDateStamp(timestamp)} size={112} />
@@ -75,25 +79,13 @@ export function StampReveal({ stationId, name, timestamp, first, litCount, total
 
 const styles = StyleSheet.create({
   wrap: { paddingTop: 8, paddingBottom: 4 },
-  small: { fontSize: 12, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 1 },
-  name: { fontSize: 44, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 6, marginTop: 6 },
+  status: { fontSize: 14, color: colors.stamp, fontFamily: fonts.ticket, letterSpacing: 1 },
+  name: { fontSize: 44, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 6, marginTop: 4 },
   nameLong: { fontSize: 32, letterSpacing: 2 },
-  status: { fontSize: 14, color: colors.print, fontFamily: fonts.ticket, marginTop: 2 },
-  // 售票口的紫色日期戳，故意壓得有點歪
-  dateStamp: {
-    alignSelf: "flex-start",
-    marginTop: 10,
-    color: colors.dateInk,
-    fontSize: 15,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-    letterSpacing: 1,
-    transform: [{ rotate: "-3deg" }],
-    opacity: 0.85,
-  },
+  detail: { fontSize: 14, color: colors.print, marginTop: 6, fontVariant: ["tabular-nums"] },
   stub: { alignItems: "center", width: 64 },
   stubCount: { fontSize: 30, color: colors.stamp, fontFamily: fonts.ticket },
   stubTotal: { fontSize: 12, color: colors.print },
-  // 蓋在票面右半，避開上方的乘車日期
-  stamp: { position: "absolute", right: 74, top: 42 },
+  // 蓋在票面右半，壓在站名旁
+  stamp: { position: "absolute", right: 74, top: 22 },
 });

@@ -25,7 +25,7 @@ type Step =
   | { kind: "denied" }
   | { kind: "error"; message: string }
   | { kind: "found"; nearest: Nearest; lat: number; lng: number }
-  | { kind: "done"; station: Station; record: CheckIn; first: boolean };
+  | { kind: "done"; station: Station; record: CheckIn };
 
 export function CheckInSheet({ visible, stations, visits, lastCompanions, onConfirm, onClose }: Props) {
   const [step, setStep] = useState<Step>({ kind: "locating" });
@@ -62,7 +62,6 @@ export function CheckInSheet({ visible, stations, visits, lastCompanions, onConf
   const confirm = async (station: Station, lat: number, lng: number) => {
     setSaving(true);
     try {
-      const first = !visits.has(station.id);
       const record = await onConfirm({
         stationId: station.id,
         companions: companions.trim(),
@@ -70,7 +69,7 @@ export function CheckInSheet({ visible, stations, visits, lastCompanions, onConf
         lat,
         lng,
       });
-      setStep({ kind: "done", station, record, first });
+      setStep({ kind: "done", station, record });
     } finally {
       setSaving(false);
     }
@@ -170,7 +169,8 @@ export function CheckInSheet({ visible, stations, visits, lastCompanions, onConf
                 stationId={step.station.id}
                 name={step.station.name}
                 timestamp={step.record.timestamp}
-                first={step.first}
+                visitNumber={visits.get(step.station.id) ?? 1}
+                companions={step.record.companions}
                 litCount={visits.size}
                 total={stations.length}
               />
