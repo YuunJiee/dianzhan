@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { earlierInbound, explainInfeasible } from "../csa/csa.ts";
-import type { Journey, Options, Reach, Timetable } from "../csa/types.ts";
+import type { Journey, Leg, Options, Reach, Timetable } from "../csa/types.ts";
 import { formatDuration, formatTime } from "./format.ts";
-import { colors, stayColor, unreachableColor } from "./theme.ts";
+import { colors, fonts, stayColor, unreachableColor } from "./theme.ts";
+import { Ticket } from "./Ticket.tsx";
 
 type Props = {
   stationId: string | undefined;
@@ -23,7 +24,9 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
   const earlier = useMemo(() => (reach ? earlierInbound(tt, opts, reach) : undefined), [tt, opts, reach]);
   const why = useMemo(
     () =>
-      stationId && (!reach || reach.stayMinutes < minStay) ? explainInfeasible(tt, opts, stationId, minStay) : undefined,
+      stationId && (!reach || reach.stayMinutes < minStay)
+        ? explainInfeasible(tt, opts, stationId, minStay)
+        : undefined,
     [tt, opts, stationId, reach, minStay],
   );
 
@@ -80,7 +83,6 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
                     note="錯過這班時，還有上面的最晚一班可以搭"
                     journey={earlier}
                     nameOf={nameOf}
-                    highlight
                   />
                 ) : (
                   <Text style={styles.hint}>沒有更早回到家的班次，最晚一班就是唯一的回程，請預留時間。</Text>
@@ -91,7 +93,9 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
                 <View style={[styles.verdict, { borderColor: colors.danger }]}>
                   <Text style={styles.verdictValue}>無法當天來回</Text>
                   {why.noOutbound && (
-                    <Text style={styles.reason}>{formatTime(opts.startTime)} 之後當天沒有車可以到{nameOf(stationId)}。</Text>
+                    <Text style={styles.reason}>
+                      {formatTime(opts.startTime)} 之後當天沒有車可以到{nameOf(stationId)}。
+                    </Text>
                   )}
                   {why.earliestHome !== undefined && (
                     <Text style={styles.reason}>就算一到就回頭，最早 {formatTime(why.earliestHome)} 才能到家。</Text>
@@ -115,43 +119,71 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
   );
 }
 
+// 一段行程＝一疊車票：每段車一張，換車處標出在哪轉、要等多久
 function JourneyCard({
   title,
   note,
   journey,
   nameOf,
-  highlight,
 }: {
   title: string;
   note?: string;
   journey: Journey;
   nameOf: (id: string) => string;
-  highlight?: boolean;
 }) {
   const transfers = journey.legs.length - 1;
   return (
-    <View style={[styles.card, highlight && styles.cardHighlight]}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardMeta}>
+    <View style={styles.journey}>
+      <View style={styles.journeyHeader}>
+        <Text style={styles.journeyTitle}>{title}</Text>
+        <Text style={styles.journeyMeta}>
           {formatDuration(journey.arr - journey.dep)}
           {transfers > 0 ? `・轉乘 ${transfers} 次` : "・直達"}
         </Text>
       </View>
-      {note && <Text style={styles.cardNote}>{note}</Text>}
+      {note && <Text style={styles.journeyNote}>{note}</Text>}
       {journey.legs.map((leg, i) => (
-        <View key={i} style={styles.leg}>
-          <View style={styles.legTrain}>
-            <Text style={styles.trainNo}>{leg.trainNo}</Text>
-            <Text style={[styles.trainType, leg.reserved && styles.reserved]}>{leg.trainType}</Text>
-            {leg.reserved && <Text style={styles.reservedTag}>需訂位</Text>}
-          </View>
-          <Text style={styles.legTimes}>
-            {formatTime(leg.dep)} {nameOf(leg.from)} → {formatTime(leg.arr)} {nameOf(leg.to)}
-          </Text>
+        <View key={i}>
+          {i > 0 && (
+            <Text style={styles.transfer}>
+              {nameOf(leg.from)} 轉車・等 {formatDuration(leg.dep - journey.legs[i - 1].arr)}
+            </Text>
+          )}
+          <LegTicket leg={leg} nameOf={nameOf} />
         </View>
       ))}
     </View>
+  );
+}
+
+function LegTicket({ leg, nameOf }: { leg: Leg; nameOf: (id: string) => string }) {
+  return (
+    <Ticket
+      notchColor={colors.background}
+      stub={
+        <View style={styles.legStub}>
+          <Text style={styles.trainNo}>{leg.trainNo}</Text>
+          <Text style={styles.trainType}>{leg.trainType}</Text>
+          {leg.reserved && <Text style={styles.reservedStamp}>對號</Text>}
+        </View>
+      }
+    >
+      <View style={styles.legRow}>
+        <View style={styles.legEnd}>
+          <Text style={styles.legStation} numberOfLines={1} adjustsFontSizeToFit>
+            {nameOf(leg.from)}
+          </Text>
+          <Text style={styles.legTime}>{formatTime(leg.dep)}</Text>
+        </View>
+        <Text style={styles.legArrow}>→</Text>
+        <View style={[styles.legEnd, styles.legEndRight]}>
+          <Text style={styles.legStation} numberOfLines={1} adjustsFontSizeToFit>
+            {nameOf(leg.to)}
+          </Text>
+          <Text style={styles.legTime}>{formatTime(leg.arr)}</Text>
+        </View>
+      </View>
+    </Ticket>
   );
 }
 
@@ -164,36 +196,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  route: { fontSize: 22, fontWeight: "700", color: colors.ink },
+  route: { fontSize: 26, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 2 },
   condition: { fontSize: 13, color: colors.muted, marginTop: 4 },
   visited: { fontSize: 13, color: colors.stamp, fontWeight: "700", marginTop: 4 },
   close: { fontSize: 16, color: colors.accent, marginTop: 4 },
   body: { padding: 16, gap: 12, paddingBottom: 40 },
   verdict: { backgroundColor: colors.surface, borderRadius: 12, borderLeftWidth: 6, padding: 16, gap: 4 },
   verdictLabel: { fontSize: 13, color: colors.muted },
-  verdictValue: { fontSize: 28, fontWeight: "700", color: colors.ink },
+  verdictValue: { fontSize: 30, color: colors.print, fontFamily: fonts.ticket },
   verdictSub: { fontSize: 14, color: colors.ink },
   reason: { fontSize: 15, color: colors.ink, lineHeight: 22 },
-  card: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, gap: 10 },
-  cardHighlight: { borderWidth: 1.5, borderColor: colors.accent },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: colors.ink },
-  cardMeta: { fontSize: 13, color: colors.muted },
-  cardNote: { fontSize: 13, color: colors.accent, marginTop: -4 },
-  leg: { gap: 2 },
-  legTrain: { flexDirection: "row", alignItems: "center", gap: 8 },
-  trainNo: { fontSize: 15, fontWeight: "600", color: colors.ink, fontVariant: ["tabular-nums"] },
-  trainType: { fontSize: 14, color: colors.ink },
-  reserved: { color: colors.reserved },
-  reservedTag: {
-    fontSize: 11,
-    color: colors.reserved,
-    borderWidth: 1,
-    borderColor: colors.reserved,
-    borderRadius: 4,
-    paddingHorizontal: 4,
+  journey: { gap: 8, marginTop: 6 },
+  journeyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    paddingHorizontal: 2,
   },
-  legTimes: { fontSize: 15, color: colors.ink, fontVariant: ["tabular-nums"] },
+  journeyTitle: { fontSize: 17, color: colors.print, fontFamily: fonts.ticket },
+  journeyMeta: { fontSize: 13, color: colors.muted },
+  journeyNote: { fontSize: 13, color: colors.accent, marginTop: -4, paddingHorizontal: 2 },
+  transfer: { fontSize: 13, color: colors.muted, textAlign: "center", paddingVertical: 6 },
+  legRow: { flexDirection: "row", alignItems: "center" },
+  legEnd: { flex: 1 },
+  legEndRight: { alignItems: "flex-end" },
+  legStation: { fontSize: 22, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 2 },
+  legTime: { fontSize: 18, color: colors.print, fontWeight: "600", fontVariant: ["tabular-nums"], marginTop: 2 },
+  legArrow: { fontSize: 18, color: colors.print, fontFamily: fonts.ticket, paddingHorizontal: 8 },
+  legStub: { alignItems: "center", width: 58, gap: 2 },
+  trainNo: { fontSize: 18, color: colors.print, fontFamily: fonts.ticket, fontVariant: ["tabular-nums"] },
+  trainType: { fontSize: 13, color: colors.print, fontFamily: fonts.ticket },
+  // 對號車：像蓋上去的方形小章
+  reservedStamp: {
+    marginTop: 3,
+    fontSize: 11,
+    color: colors.stamp,
+    fontFamily: fonts.ticket,
+    borderWidth: 1.5,
+    borderColor: colors.stamp,
+    borderRadius: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    transform: [{ rotate: "-6deg" }],
+  },
   hint: { fontSize: 13, color: colors.muted, paddingHorizontal: 4 },
   disclaimer: { fontSize: 12, color: colors.muted, textAlign: "center", marginTop: 8 },
 });

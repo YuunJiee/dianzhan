@@ -94,5 +94,6 @@ const styles = StyleSheet.create({
   stub: { alignItems: "center", width: 64 },
   stubCount: { fontSize: 30, color: colors.stamp, fontFamily: fonts.ticket },
   stubTotal: { fontSize: 12, color: colors.print },
-  stamp: { position: "absolute", right: 72, top: 16 },
+  // 蓋在票面右半，避開上方的乘車日期
+  stamp: { position: "absolute", right: 74, top: 42 },
 });

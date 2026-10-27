@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
 import type { Reach, Station } from "../csa/types.ts";
+import { railwayMapStyle } from "./mapStyle.ts";
 import { colors, stayBuckets, stayColor, unreachableColor } from "./theme.ts";
 
 type Props = {
@@ -18,7 +19,12 @@ const TAIWAN = { latitude: 23.75, longitude: 120.95, latitudeDelta: 3.6, longitu
 export function ReachMap({ stations, originId, reachById, visited, mode, onSelect }: Props) {
   return (
     <View style={styles.container}>
-      <MapView style={StyleSheet.absoluteFill} initialRegion={TAIWAN} toolbarEnabled={false}>
+      <MapView
+        style={StyleSheet.absoluteFill}
+        initialRegion={TAIWAN}
+        toolbarEnabled={false}
+        customMapStyle={railwayMapStyle}
+      >
         {stations.map((s) => {
           const isOrigin = s.id === originId && mode === "reach";
           const reach = reachById.get(s.id);
@@ -114,7 +120,9 @@ const styles = StyleSheet.create({
     bottom: 10,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(246,239,225,0.94)",
+    borderWidth: 1,
+    borderColor: "#d8c9a8",
     gap: 3,
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
