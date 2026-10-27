@@ -111,8 +111,8 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 4,
-    borderColor: colors.accent,
-    backgroundColor: "#fff",
+    borderColor: colors.board,
+    backgroundColor: colors.ticket,
   },
   legend: {
     position: "absolute",

@@ -53,15 +53,21 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
           <ScrollView contentContainerStyle={styles.body}>
             {reach ? (
               <>
-                <View
-                  style={[
-                    styles.verdict,
-                    { borderColor: reach.stayMinutes >= minStay ? stayColor(reach.stayMinutes) : unreachableColor },
-                  ]}
-                >
-                  <Text style={styles.verdictLabel}>
-                    {reach.stayMinutes >= minStay ? "可以當天來回，可停留" : "可以當天來回，但只能停留"}
-                  </Text>
+                <View style={styles.verdict}>
+                  <View style={styles.verdictLabelRow}>
+                    <View
+                      style={[
+                        styles.verdictDot,
+                        {
+                          backgroundColor:
+                            reach.stayMinutes >= minStay ? stayColor(reach.stayMinutes) : unreachableColor,
+                        },
+                      ]}
+                    />
+                    <Text style={styles.verdictLabel}>
+                      {reach.stayMinutes >= minStay ? "可以當天來回，可停留" : "可以當天來回，但只能停留"}
+                    </Text>
+                  </View>
                   <Text style={styles.verdictValue}>{formatDuration(reach.stayMinutes)}</Text>
                   <Text style={styles.verdictSub}>
                     {formatTime(reach.arrivalTime)} 抵達・{formatTime(reach.returnTime)} 搭回程
@@ -90,8 +96,8 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
               </>
             ) : (
               why && (
-                <View style={[styles.verdict, { borderColor: colors.danger }]}>
-                  <Text style={styles.verdictValue}>無法當天來回</Text>
+                <View style={styles.verdict}>
+                  <Text style={[styles.verdictValue, styles.verdictNo]}>無法當天來回</Text>
                   {why.noOutbound && (
                     <Text style={styles.reason}>
                       {formatTime(opts.startTime)} 之後當天沒有車可以到{nameOf(stationId)}。
@@ -159,7 +165,7 @@ function JourneyCard({
 function LegTicket({ leg, nameOf }: { leg: Leg; nameOf: (id: string) => string }) {
   return (
     <Ticket
-      notchColor={colors.background}
+      notchColor={colors.paper}
       stub={
         <View style={styles.legStub}>
           <Text style={styles.trainNo}>{leg.trainNo}</Text>
@@ -188,7 +194,7 @@ function LegTicket({ leg, nameOf }: { leg: Leg; nameOf: (id: string) => string }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: colors.paper, paddingTop: 48 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -199,13 +205,17 @@ const styles = StyleSheet.create({
   route: { fontSize: 26, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 2 },
   condition: { fontSize: 13, color: colors.muted, marginTop: 4 },
   visited: { fontSize: 13, color: colors.stamp, fontWeight: "700", marginTop: 4 },
-  close: { fontSize: 16, color: colors.accent, marginTop: 4 },
+  close: { fontSize: 16, color: colors.print, marginTop: 4 },
   body: { padding: 16, gap: 12, paddingBottom: 40 },
-  verdict: { backgroundColor: colors.surface, borderRadius: 12, borderLeftWidth: 6, padding: 16, gap: 4 },
-  verdictLabel: { fontSize: 13, color: colors.muted },
-  verdictValue: { fontSize: 30, color: colors.print, fontFamily: fonts.ticket },
-  verdictSub: { fontSize: 14, color: colors.ink },
-  reason: { fontSize: 15, color: colors.ink, lineHeight: 22 },
+  // 和首頁上方一樣的時刻表看板
+  verdict: { backgroundColor: colors.board, borderRadius: 4, padding: 16, gap: 6 },
+  verdictLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  verdictDot: { width: 10, height: 10, borderRadius: 5 },
+  verdictLabel: { fontSize: 13, color: colors.boardMuted },
+  verdictValue: { fontSize: 32, color: colors.boardText, fontFamily: fonts.ticket },
+  verdictNo: { color: colors.ticket },
+  verdictSub: { fontSize: 15, color: colors.boardText, fontVariant: ["tabular-nums"] },
+  reason: { fontSize: 15, color: colors.boardText, lineHeight: 22 },
   journey: { gap: 8, marginTop: 6 },
   journeyHeader: {
     flexDirection: "row",
@@ -215,7 +225,7 @@ const styles = StyleSheet.create({
   },
   journeyTitle: { fontSize: 17, color: colors.print, fontFamily: fonts.ticket },
   journeyMeta: { fontSize: 13, color: colors.muted },
-  journeyNote: { fontSize: 13, color: colors.accent, marginTop: -4, paddingHorizontal: 2 },
+  journeyNote: { fontSize: 13, color: colors.dateInk, marginTop: -4, paddingHorizontal: 2 },
   transfer: { fontSize: 13, color: colors.muted, textAlign: "center", paddingVertical: 6 },
   legRow: { flexDirection: "row", alignItems: "center" },
   legEnd: { flex: 1 },

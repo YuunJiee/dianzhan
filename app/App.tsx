@@ -9,7 +9,8 @@ import { useCheckIns } from "./src/checkins/useCheckIns.ts";
 import { computeReach } from "./src/csa/csa.ts";
 import type { Options } from "./src/csa/types.ts";
 import { useCatalog, useTimetable } from "./src/data/useData.ts";
-import { formatDate, formatTime, today } from "./src/ui/format.ts";
+import { Flap, FlapText } from "./src/ui/Flap.tsx";
+import { dateParts, formatTime, today } from "./src/ui/format.ts";
 import { ReachList } from "./src/ui/ReachList.tsx";
 import { ReachMap } from "./src/ui/ReachMap.tsx";
 import { CheckInHistory } from "./src/ui/CheckInHistory.tsx";
@@ -128,11 +129,17 @@ function App() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dates}>
-          {dates.map((d) => (
-            <Pressable key={d} onPress={() => setDate(d)} style={[styles.dateChip, d === date && styles.dateChipOn]}>
-              <Text style={[styles.dateText, d === date && styles.dateTextOn]}>{formatDate(d)}</Text>
-            </Pressable>
-          ))}
+          {dates.map((d) => {
+            const { md, weekday } = dateParts(d);
+            return (
+              <Flap key={d} on={d === date} onPress={() => setDate(d)} style={styles.dateTile}>
+                <FlapText on={d === date}>{md}</FlapText>
+                <FlapText on={d === date} style={styles.weekday}>
+                  {weekday}
+                </FlapText>
+              </Flap>
+            );
+          })}
         </ScrollView>
 
         <View style={styles.timeRow}>
@@ -153,8 +160,8 @@ function App() {
             <Switch
               value={settings.unreservedOnly}
               onValueChange={(v) => updateSettings({ unreservedOnly: v })}
-              trackColor={{ true: "#8fb3e6", false: "#56708f" }}
-              thumbColor="#fff"
+              trackColor={{ true: colors.ticketEdge, false: colors.boardTile }}
+              thumbColor={settings.unreservedOnly ? colors.ticket : colors.boardMuted}
             />
           </View>
         </View>
@@ -162,15 +169,11 @@ function App() {
         <View style={styles.minStayRow}>
           <Text style={styles.minStayLabel}>至少停留</Text>
           {MIN_STAY_OPTIONS.map((m) => (
-            <Pressable
-              key={m}
-              onPress={() => updateSettings({ minStay: m })}
-              style={[styles.minStayChip, settings.minStay === m && styles.minStayChipOn]}
-            >
-              <Text style={[styles.minStayText, settings.minStay === m && styles.minStayTextOn]}>
+            <Flap key={m} on={settings.minStay === m} onPress={() => updateSettings({ minStay: m })}>
+              <FlapText on={settings.minStay === m} style={styles.minStayText}>
                 {m < 60 ? `${m}分` : `${m / 60}小時`}
-              </Text>
-            </Pressable>
+              </FlapText>
+            </Flap>
           ))}
         </View>
       </View>
@@ -274,7 +277,17 @@ function formatUpdatedAt(iso: string): string {
   return `${m}/${d} ${time.slice(0, 5)}`;
 }
 
-function TimeStepper({ label, value, onMinus, onPlus }: { label: string; value: number; onMinus: () => void; onPlus: () => void }) {
+function TimeStepper({
+  label,
+  value,
+  onMinus,
+  onPlus,
+}: {
+  label: string;
+  value: number;
+  onMinus: () => void;
+  onPlus: () => void;
+}) {
   return (
     <View style={styles.stepper}>
       <Text style={styles.stepperLabel}>{label}</Text>
@@ -282,7 +295,15 @@ function TimeStepper({ label, value, onMinus, onPlus }: { label: string; value: 
         <Pressable onPress={onMinus} hitSlop={8} style={styles.stepperButton}>
           <Text style={styles.stepperButtonText}>−</Text>
         </Pressable>
-        <Text style={styles.stepperValue}>{formatTime(value)}</Text>
+        <View style={styles.stepperValue}>
+          <Flap style={styles.timeTile}>
+            <FlapText style={styles.timeDigits}>{formatTime(value).slice(0, 2)}</FlapText>
+          </Flap>
+          <Text style={styles.timeColon}>:</Text>
+          <Flap style={styles.timeTile}>
+            <FlapText style={styles.timeDigits}>{formatTime(value).slice(3)}</FlapText>
+          </Flap>
+        </View>
         <Pressable onPress={onPlus} hitSlop={8} style={styles.stepperButton}>
           <Text style={styles.stepperButtonText}>＋</Text>
         </Pressable>
@@ -297,60 +318,75 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 18, fontWeight: "700", color: colors.ink },
   errorText: { fontSize: 15, color: colors.ink },
   errorDetail: { fontSize: 12, color: colors.muted, textAlign: "center" },
-  retryButton: { marginTop: 12, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryButton: {
+    marginTop: 12,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
   retryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { backgroundColor: colors.accent, paddingTop: 48, paddingBottom: 12, gap: 10 },
+  container: { flex: 1, backgroundColor: colors.paper },
+  // 上方：車站的翻牌式時刻表看板
+  header: { backgroundColor: colors.board, paddingTop: 48, paddingBottom: 14, gap: 12 },
   originRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingHorizontal: 16 },
   originButton: {},
-  originLabel: { fontSize: 12, color: "#c9d6ea" },
-  originName: { fontSize: 26, fontWeight: "700", color: "#fff" },
-  destButton: { borderWidth: 1, borderColor: "#c9d6ea", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 7 },
-  destText: { color: "#fff", fontSize: 14 },
-  dates: { paddingHorizontal: 12, gap: 6 },
-  dateChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.12)" },
-  dateChipOn: { backgroundColor: "#fff" },
-  dateText: { color: "#fff", fontSize: 14 },
-  dateTextOn: { color: colors.accent, fontWeight: "700" },
-  timeRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 16 },
-  stepper: {},
-  stepperLabel: { fontSize: 12, color: "#c9d6ea" },
-  stepperControls: { flexDirection: "row", alignItems: "center", gap: 8 },
+  originLabel: { fontSize: 12, color: colors.boardMuted },
+  originName: { fontSize: 30, color: colors.boardText, fontFamily: fonts.ticket, letterSpacing: 4 },
+  destButton: {
+    borderWidth: 1,
+    borderColor: colors.boardMuted,
+    borderRadius: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  destText: { color: colors.boardText, fontSize: 14 },
+  dates: { paddingHorizontal: 16, gap: 5 },
+  dateTile: { width: 54, paddingVertical: 6 },
+  weekday: { fontSize: 12, fontWeight: "400", marginTop: 3 },
+  timeRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 18 },
+  stepper: { gap: 4 },
+  stepperLabel: { fontSize: 12, color: colors.boardMuted },
+  stepperControls: { flexDirection: "row", alignItems: "center", gap: 6 },
   stepperButton: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1,
+    borderColor: colors.boardMuted,
     alignItems: "center",
     justifyContent: "center",
   },
-  stepperButtonText: { color: "#fff", fontSize: 16, lineHeight: 18 },
-  stepperValue: { color: "#fff", fontSize: 18, fontWeight: "600", fontVariant: ["tabular-nums"] },
+  stepperButtonText: { color: colors.boardText, fontSize: 15, lineHeight: 17 },
+  stepperValue: { flexDirection: "row", alignItems: "center", gap: 2 },
+  timeTile: { paddingHorizontal: 5, paddingVertical: 3 },
+  timeDigits: { fontSize: 20, fontWeight: "700" },
+  timeColon: { color: colors.boardText, fontSize: 18, fontWeight: "700" },
   localToggle: { marginLeft: "auto", alignItems: "center" },
-  localLabel: { fontSize: 12, color: "#c9d6ea" },
-  minStayRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 6 },
-  minStayLabel: { fontSize: 12, color: "#c9d6ea", marginRight: 2 },
-  minStayChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.12)" },
-  minStayChipOn: { backgroundColor: "#fff" },
-  minStayText: { color: "#fff", fontSize: 13 },
-  minStayTextOn: { color: colors.accent, fontWeight: "700" },
+  localLabel: { fontSize: 12, color: colors.boardMuted },
+  minStayRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 5 },
+  minStayLabel: { fontSize: 12, color: colors.boardMuted, marginRight: 4 },
+  minStayText: { fontSize: 13 },
+  // 看板下方：紙色的路線圖區
   summaryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: colors.paperLine,
   },
-  summary: { fontSize: 15, fontWeight: "600", color: colors.ink },
-  tabs: { flexDirection: "row", backgroundColor: colors.line, borderRadius: 8, padding: 2 },
-  tab: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 6 },
-  tabOn: { backgroundColor: colors.surface },
-  tabText: { fontSize: 14, color: colors.muted },
-  tabTextOn: { color: colors.ink, fontWeight: "600" },
+  summary: { fontSize: 15, fontWeight: "600", color: colors.print },
+  tabs: { flexDirection: "row", borderWidth: 1, borderColor: colors.print, borderRadius: 3, overflow: "hidden" },
+  tab: { paddingHorizontal: 14, paddingVertical: 5 },
+  tabOn: { backgroundColor: colors.print },
+  tabText: { fontSize: 14, color: colors.print },
+  tabTextOn: { color: colors.paper, fontWeight: "600" },
   content: { flex: 1 },
   stampCount: { color: colors.stamp, fontWeight: "800" },
   collectionSummary: { flexDirection: "row", alignItems: "baseline", gap: 12 },
-  historyLink: { fontSize: 14, color: colors.accent },
+  historyLink: { fontSize: 14, color: colors.dateInk },
   checkInButton: {
     position: "absolute",
     right: 16,
@@ -368,5 +404,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   checkInText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  footer: { fontSize: 11, color: colors.muted, textAlign: "center", paddingVertical: 6, paddingBottom: 18 },
+  footer: {
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: "center",
+    paddingVertical: 6,
+    paddingBottom: 18,
+    borderTopWidth: 1,
+    borderColor: colors.paperLine,
+  },
 });

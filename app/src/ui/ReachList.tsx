@@ -2,7 +2,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { Reach } from "../csa/types.ts";
 import { formatDurationShort, formatTime } from "./format.ts";
-import { colors, stayColor } from "./theme.ts";
+import { colors, fonts, stayColor } from "./theme.ts";
 
 type Props = {
   reach: Reach[]; // 已依可停留時間排序
@@ -54,17 +54,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    borderColor: colors.paperLine,
+    backgroundColor: colors.paper,
   },
-  headerRow: { paddingVertical: 8, backgroundColor: colors.background },
+  headerRow: { paddingVertical: 8, backgroundColor: colors.paper },
   headerText: { fontSize: 12, color: colors.muted },
   pressed: { backgroundColor: colors.accentSoft },
   stay: { width: 72, flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   stayText: { fontSize: 15, fontWeight: "600", color: colors.ink, fontVariant: ["tabular-nums"] },
   name: { flex: 1 },
-  nameText: { fontSize: 16, color: colors.ink },
+  nameText: { fontSize: 17, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 1 },
   sub: { fontSize: 12, color: colors.muted, marginTop: 1 },
   cell: { width: 52, textAlign: "right", fontSize: 14, color: colors.ink, fontVariant: ["tabular-nums"] },
   empty: { padding: 24, textAlign: "center", color: colors.muted },

@@ -23,6 +23,12 @@ export function formatDate(date: string): string {
   return `${m}/${d}（${weekday}）`;
 }
 
+/** "2026-11-01" → { md: "11/1", weekday: "日" }，給時刻表看板分兩行顯示 */
+export function dateParts(date: string): { md: string; weekday: string } {
+  const [y, m, d] = date.split("-").map(Number);
+  return { md: `${m}/${d}`, weekday: weekdays[new Date(y, m - 1, d).getDay()] };
+}
+
 /** 今天起第 offset 天的 YYYY-MM-DD（手機的當地時間） */
 export function today(offset = 0): string {
   const now = new Date();

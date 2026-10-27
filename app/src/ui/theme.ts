@@ -13,6 +13,14 @@ export const colors = {
   ticketEdge: "#d9b89f",
   print: "#2b2a28", // 車票的印刷墨
   dateInk: "#5a3e8e", // 售票口的日期戳（紫色印泥）
+  // 車站翻牌式時刻表看板
+  board: "#23241f",
+  boardTile: "#36382f",
+  boardSeam: "#1b1c18",
+  boardText: "#efe6d3",
+  boardMuted: "#a39b88",
+  paper: "#f1e9d8", // 和地圖底圖同色系的紙色
+  paperLine: "#ddd0b6",
 };
 
 // 車票、站章用的明體（只含站名與固定用字，見 scripts/subset-font.py）
