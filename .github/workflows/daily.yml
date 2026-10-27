@@ -1,0 +1,46 @@
+# 每天抓一次 TDX 台鐵資料，更新 docs/data/（GitHub Pages 提供給 App 下載）
+name: 每日更新時刻表
+
+on:
+  schedule:
+    - cron: "30 18 * * *" # 台灣時間每天 02:30
+  workflow_dispatch: # 也可以在 GitHub 網頁上手動執行
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: 抓資料並產生 JSON
+        env:
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+        run: python pipeline/build.py
+
+      # 腳本失敗時不會走到這裡，docs/data 保留前一天的資料（規格書風險對策）
+      - name: 有變動才 commit
+        run: |
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "資料沒有變動"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "每日更新時刻表 $(TZ=Asia/Taipei date +%F)"
+          git push
