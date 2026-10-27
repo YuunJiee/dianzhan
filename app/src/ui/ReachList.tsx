@@ -15,6 +15,8 @@ export function ReachList({ reach, nameOf, onSelect }: Props) {
     <FlatList
       data={reach}
       keyExtractor={(r) => r.stationId}
+      // 底部留空，最後幾列才能捲到「打卡」按鈕上方
+      contentContainerStyle={styles.listContent}
       ListHeaderComponent={
         <View style={[styles.row, styles.headerRow]}>
           <Text style={[styles.stay, styles.headerText]}>可停留</Text>
@@ -51,6 +53,7 @@ export function ReachList({ reach, nameOf, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
+  listContent: { paddingBottom: 100 },
   row: {
     flexDirection: "row",
     alignItems: "center",

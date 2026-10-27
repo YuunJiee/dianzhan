@@ -29,10 +29,10 @@ export const fonts = { ticket: "TicketSerif" };
 
 // 可停留時間的上色分級（規格書 F1）
 export const stayBuckets = [
-  { min: 6 * 60, label: "6 小時以上", color: "#1b7a43" },
-  { min: 3 * 60, label: "3～6 小時", color: "#4caf6e" },
-  { min: 60, label: "1～3 小時", color: "#e0a526" },
-  { min: 0, label: "少於 1 小時", color: "#e0662b" },
+  { min: 6 * 60, label: "6 小時以上", short: "6h 以上", color: "#1b7a43" },
+  { min: 3 * 60, label: "3～6 小時", short: "3～6h", color: "#4caf6e" },
+  { min: 60, label: "1～3 小時", short: "1～3h", color: "#e0a526" },
+  { min: 0, label: "少於 1 小時", short: "1h 內", color: "#e0662b" },
 ] as const;
 
 export const unreachableColor = "#b5aa95"; // 暖灰，放在紙色地圖上不突兀

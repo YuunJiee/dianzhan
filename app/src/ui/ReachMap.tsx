@@ -68,7 +68,8 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
     fitted.current = true;
     map.current?.fitToCoordinates(
       stations.map((s) => ({ latitude: s.lat, longitude: s.lng })),
-      { edgePadding: { top: 24, right: 24, bottom: 24, left: 24 }, animated: false },
+      // 上方留給圖例，下方留給「打卡」按鈕
+      { edgePadding: { top: 48, right: 24, bottom: 96, left: 24 }, animated: false },
     );
   };
 
@@ -114,35 +115,32 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
           );
         })}
       </MapView>
-      {mode === "reach" ? (
-        <View style={styles.legend}>
-          {stayBuckets.map((b) => (
-            <View key={b.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: b.color }]} />
-              <Text style={styles.legendText}>{b.label}</Text>
-            </View>
-          ))}
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: unreachableColor }]} />
-            <Text style={styles.legendText}>停留不足或無法來回</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, styles.legendVisited]} />
-            <Text style={styles.legendText}>去過</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.stamp }]} />
-            <Text style={styles.legendText}>已點亮</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: unreachableColor }]} />
-            <Text style={styles.legendText}>還沒去過</Text>
-          </View>
-        </View>
-      )}
+      {/* 圖例：地圖上方一條細帶，不遮住任何車站 */}
+      <View style={styles.legend}>
+        {mode === "reach" ? (
+          <>
+            {stayBuckets.map((b) => (
+              <LegendItem key={b.label} color={b.color} label={b.short} />
+            ))}
+            <LegendItem color={unreachableColor} label="不足" />
+            <LegendItem ring label="去過" />
+          </>
+        ) : (
+          <>
+            <LegendItem color={colors.stamp} label="已點亮" />
+            <LegendItem color={unreachableColor} label="還沒去過" />
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function LegendItem({ color, label, ring }: { color?: string; label: string; ring?: boolean }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, ring ? styles.legendVisited : { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
     </View>
   );
 }
@@ -151,17 +149,22 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   legend: {
     position: "absolute",
-    left: 10,
-    bottom: 10,
-    padding: 8,
-    borderRadius: 3,
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    columnGap: 12,
+    rowGap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: colors.paper,
-    borderWidth: 1,
+    borderBottomWidth: 1,
     borderColor: colors.paperLine,
-    gap: 3,
   },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  legendDot: { width: 9, height: 9, borderRadius: 4.5 },
   legendVisited: { backgroundColor: colors.paper, borderWidth: 2.5, borderColor: colors.stamp },
-  legendText: { fontSize: 12, color: colors.print },
+  legendText: { fontSize: 11, color: colors.print },
 });
