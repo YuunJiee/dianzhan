@@ -11,6 +11,7 @@ import { useCatalog, useTimetable } from "./src/data/useData.ts";
 import { formatDate, formatTime, today } from "./src/ui/format.ts";
 import { ReachList } from "./src/ui/ReachList.tsx";
 import { ReachMap } from "./src/ui/ReachMap.tsx";
+import { CheckInHistory } from "./src/ui/CheckInHistory.tsx";
 import { CheckInSheet } from "./src/ui/CheckInSheet.tsx";
 import { StationDetail } from "./src/ui/StationDetail.tsx";
 import { StationPicker } from "./src/ui/StationPicker.tsx";
@@ -37,11 +38,13 @@ const TABS = [
 
 function App() {
   const catalog = useCatalog();
-  const { visits, lastCompanions, checkIn } = useCheckIns();
+  const { checkIns, visits, lastCompanions, checkIn, remove, importMany } = useCheckIns();
   const [checkingIn, setCheckingIn] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const stations = catalog.value?.stations ?? [];
   const nameById = useMemo(() => new Map(stations.map((s) => [s.id, s.name])), [stations]);
   const nameOf = (id: string) => nameById.get(id) ?? id;
+  const stationIds = useMemo(() => new Set(stations.map((s) => s.id)), [stations]);
 
   const dates = useMemo(() => {
     const all = Object.keys(catalog.value?.index.dates ?? {}).sort();
@@ -170,9 +173,12 @@ function App() {
 
       <View style={styles.summaryRow}>
         {view === "collection" ? (
-          <Text style={styles.summary}>
-            已點亮 <Text style={styles.stampCount}>{visits.size}</Text> / {stations.length} 站
-          </Text>
+          <Pressable onPress={() => setShowHistory(true)} style={styles.collectionSummary}>
+            <Text style={styles.summary}>
+              已點亮 <Text style={styles.stampCount}>{visits.size}</Text> / {stations.length} 站
+            </Text>
+            <Text style={styles.historyLink}>紀錄 ›</Text>
+          </Pressable>
         ) : (
           <Text style={styles.summary}>
             可當天來回 {reach.length} 站{timetable.loading ? "（更新中…）" : ""}
@@ -233,6 +239,16 @@ function App() {
           await checkIn(input);
         }}
         onClose={() => setCheckingIn(false)}
+      />
+
+      <CheckInHistory
+        visible={showHistory}
+        checkIns={checkIns}
+        stationIds={stationIds}
+        nameOf={nameOf}
+        onDelete={remove}
+        onImport={importMany}
+        onClose={() => setShowHistory(false)}
       />
 
       <StationDetail
@@ -331,6 +347,8 @@ const styles = StyleSheet.create({
   tabTextOn: { color: colors.ink, fontWeight: "600" },
   content: { flex: 1 },
   stampCount: { color: colors.stamp, fontWeight: "800" },
+  collectionSummary: { flexDirection: "row", alignItems: "baseline", gap: 12 },
+  historyLink: { fontSize: 14, color: colors.accent },
   checkInButton: {
     position: "absolute",
     right: 16,

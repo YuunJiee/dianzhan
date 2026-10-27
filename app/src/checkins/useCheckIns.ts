@@ -45,6 +45,16 @@ export function useCheckIns() {
     [db, reload],
   );
 
+  /** 匯入備份；已存在的紀錄（同 id）略過，回傳新增筆數。 */
+  const importMany = useCallback(
+    async (records: CheckIn[]) => {
+      const added = await addCheckIns(db, records);
+      await reload();
+      return added;
+    },
+    [db, reload],
+  );
+
   // 去過的車站 → 打卡次數
   const visits = useMemo(() => {
     const map = new Map<string, number>();
@@ -55,5 +65,5 @@ export function useCheckIns() {
   // 上次填的同行者，打卡時預先帶入
   const lastCompanions = checkIns[0]?.companions ?? "";
 
-  return { checkIns, visits, lastCompanions, checkIn, remove, reload };
+  return { checkIns, visits, lastCompanions, checkIn, remove, importMany, reload };
 }
