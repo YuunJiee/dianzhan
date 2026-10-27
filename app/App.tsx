@@ -1,3 +1,4 @@
+import { useFonts } from "expo-font";
 import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
@@ -15,7 +16,7 @@ import { CheckInHistory } from "./src/ui/CheckInHistory.tsx";
 import { CheckInSheet } from "./src/ui/CheckInSheet.tsx";
 import { StationDetail } from "./src/ui/StationDetail.tsx";
 import { StationPicker } from "./src/ui/StationPicker.tsx";
-import { colors } from "./src/ui/theme.ts";
+import { colors, fonts } from "./src/ui/theme.ts";
 import { useSettings } from "./src/ui/useSettings.ts";
 
 const TIME_STEP = 30;
@@ -23,6 +24,9 @@ const DATE_RANGE_DAYS = 30; // 只顯示一個月內的日期，和台鐵開放�
 const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 
 export default function Root() {
+  // 車票與站章用的明體（缺字時自動改用系統字型）
+  const [fontsLoaded, fontError] = useFonts({ [fonts.ticket]: require("./assets/fonts/TicketSerif.ttf") });
+  if (!fontsLoaded && !fontError) return null;
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrate}>
       <App />
@@ -235,9 +239,7 @@ function App() {
         stations={stations}
         visits={visits}
         lastCompanions={lastCompanions}
-        onConfirm={async (input) => {
-          await checkIn(input);
-        }}
+        onConfirm={checkIn}
         onClose={() => setCheckingIn(false)}
       />
 

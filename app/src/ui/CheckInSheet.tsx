@@ -5,16 +5,18 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { CHECK_IN_RADIUS_M, formatDistance, type Nearest, nearestStation } from "../checkins/geo.ts";
+import type { CheckIn } from "../checkins/db.ts";
 import type { NewCheckIn } from "../checkins/useCheckIns.ts";
 import type { Station } from "../csa/types.ts";
-import { colors } from "./theme.ts";
+import { StampReveal } from "./StampReveal.tsx";
+import { colors, fonts } from "./theme.ts";
 
 type Props = {
   visible: boolean;
   stations: Station[];
   visits: Map<string, number>;
   lastCompanions: string;
-  onConfirm: (input: NewCheckIn) => Promise<void>;
+  onConfirm: (input: NewCheckIn) => Promise<CheckIn>;
   onClose: () => void;
 };
 
@@ -23,7 +25,7 @@ type Step =
   | { kind: "denied" }
   | { kind: "error"; message: string }
   | { kind: "found"; nearest: Nearest; lat: number; lng: number }
-  | { kind: "done"; station: Station; first: boolean };
+  | { kind: "done"; station: Station; record: CheckIn; first: boolean };
 
 export function CheckInSheet({ visible, stations, visits, lastCompanions, onConfirm, onClose }: Props) {
   const [step, setStep] = useState<Step>({ kind: "locating" });
@@ -61,8 +63,8 @@ export function CheckInSheet({ visible, stations, visits, lastCompanions, onConf
     setSaving(true);
     try {
       const first = !visits.has(station.id);
-      await onConfirm({ stationId: station.id, companions: companions.trim(), note: note.trim(), lat, lng });
-      setStep({ kind: "done", station, first });
+      const record = await onConfirm({ stationId: station.id, companions: companions.trim(), note: note.trim(), lat, lng });
+      setStep({ kind: "done", station, record, first });
     } finally {
       setSaving(false);
     }
@@ -144,9 +146,14 @@ export function CheckInSheet({ visible, stations, visits, lastCompanions, onConf
 
           {step.kind === "done" && (
             <>
-              <Text style={styles.label}>{step.first ? "新車站點亮！" : "打卡完成"}</Text>
-              <Text style={styles.station}>{step.station.name}</Text>
-              <Text style={styles.detail}>已點亮 {visits.size} / {stations.length} 站</Text>
+              <StampReveal
+                stationId={step.station.id}
+                name={step.station.name}
+                timestamp={step.record.timestamp}
+                first={step.first}
+                litCount={visits.size}
+                total={stations.length}
+              />
               <Buttons onClose={onClose} closeLabel="完成" />
             </>
           )}
@@ -187,7 +194,7 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", gap: 12, paddingVertical: 24 },
   title: { fontSize: 20, fontWeight: "700", color: colors.ink },
   label: { fontSize: 14, color: colors.muted },
-  station: { fontSize: 32, fontWeight: "800", color: colors.ink },
+  station: { fontSize: 34, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 4 },
   body: { fontSize: 15, color: colors.ink, lineHeight: 22 },
   detail: { fontSize: 13, color: colors.muted },
   input: { borderWidth: 1, borderColor: colors.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },

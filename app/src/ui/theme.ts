@@ -8,8 +8,15 @@ export const colors = {
   accentSoft: "#e8eef7",
   reserved: "#b54708", // 對號車
   danger: "#b42318",
-  stamp: "#c0392b", // 站章朱紅：去過的車站
+  stamp: "#b8322a", // 站章朱：去過的車站、紀念章
+  ticket: "#eed3bf", // 名片式硬票的紙色
+  ticketEdge: "#d9b89f",
+  print: "#2b2a28", // 車票的印刷墨
+  dateInk: "#5a3e8e", // 售票口的日期戳（紫色印泥）
 };
+
+// 車票、站章用的明體（只含站名與固定用字，見 scripts/subset-font.py）
+export const fonts = { ticket: "TicketSerif" };
 
 // 可停留時間的上色分級（規格書 F1）
 export const stayBuckets = [

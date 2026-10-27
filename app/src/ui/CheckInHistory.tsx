@@ -6,7 +6,10 @@ import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react
 
 import { parseBackupJson, toBackupJson } from "../checkins/backup.ts";
 import type { CheckIn } from "../checkins/db.ts";
-import { colors } from "./theme.ts";
+import { rocDateStamp, stampAngle } from "./retro.ts";
+import { StationStamp } from "./StationStamp.tsx";
+import { colors, fonts } from "./theme.ts";
+import { Ticket } from "./Ticket.tsx";
 
 type Props = {
   visible: boolean;
@@ -92,17 +95,24 @@ export function CheckInHistory({ visible, checkIns, stationIds, nameOf, onDelete
         <FlatList
           data={checkIns}
           keyExtractor={(c) => c.id}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <Pressable
-              onLongPress={() => confirmDelete(item)}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-            >
-              <View style={styles.rowTop}>
+            <Pressable onLongPress={() => confirmDelete(item)} style={({ pressed }) => pressed && styles.pressed}>
+              <Ticket
+                notchColor={colors.background}
+                stub={
+                  <View style={{ transform: [{ rotate: `${stampAngle(item.stationId)}deg` }], opacity: 0.9 }}>
+                    <StationStamp name={nameOf(item.stationId)} size={58} />
+                  </View>
+                }
+              >
                 <Text style={styles.station}>{nameOf(item.stationId)}</Text>
-                <Text style={styles.time}>{formatTimestamp(item.timestamp)}</Text>
-              </View>
-              {item.companions !== "" && <Text style={styles.sub}>和 {item.companions}</Text>}
-              {item.note !== "" && <Text style={styles.note}>{item.note}</Text>}
+                <Text style={styles.dateStamp}>
+                  {rocDateStamp(item.timestamp)} {item.timestamp.slice(11, 16)}
+                </Text>
+                {item.companions !== "" && <Text style={styles.sub}>和 {item.companions}</Text>}
+                {item.note !== "" && <Text style={styles.note}>{item.note}</Text>}
+              </Ticket>
             </Pressable>
           )}
           ListEmptyComponent={<Text style={styles.empty}>還沒有打卡紀錄。到車站時按右下角的「打卡」！</Text>}
@@ -130,19 +140,11 @@ const styles = StyleSheet.create({
   actionText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
   disabled: { color: colors.muted },
   hint: { fontSize: 12, color: colors.muted, paddingHorizontal: 20, paddingVertical: 10 },
-  row: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.line,
-    gap: 3,
-  },
-  pressed: { backgroundColor: colors.accentSoft },
-  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  station: { fontSize: 17, fontWeight: "600", color: colors.ink },
-  time: { fontSize: 13, color: colors.muted, fontVariant: ["tabular-nums"] },
-  sub: { fontSize: 14, color: colors.ink },
-  note: { fontSize: 14, color: colors.muted },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
+  pressed: { opacity: 0.7 },
+  station: { fontSize: 22, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 3 },
+  dateStamp: { color: colors.dateInk, fontSize: 13, fontWeight: "700", fontVariant: ["tabular-nums"], marginTop: 4 },
+  sub: { fontSize: 14, color: colors.print, marginTop: 4 },
+  note: { fontSize: 14, color: colors.muted, marginTop: 2 },
   empty: { padding: 24, textAlign: "center", color: colors.muted },
 });

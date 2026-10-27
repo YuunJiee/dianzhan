@@ -30,7 +30,8 @@
           "locationWhenInUsePermission": "點站需要你的位置，確認你在車站附近才能打卡。"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ]
   }
 }
