@@ -211,8 +211,16 @@ function App() {
             onSelect={setSelected}
           />
         )}
-        <Pressable onPress={() => setCheckingIn(true)} style={styles.checkInButton}>
-          <Text style={styles.checkInText}>打卡</Text>
+        {/* 打卡按鈕做成一顆站章：朱紅雙圈、明體「打卡」，稍微蓋歪 */}
+        <Pressable
+          onPress={() => setCheckingIn(true)}
+          style={({ pressed }) => [styles.checkInButton, pressed && styles.checkInPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="打卡"
+        >
+          <View style={styles.checkInInner}>
+            <Text style={styles.checkInText}>打卡</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -404,19 +412,33 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 16,
     bottom: 16,
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: colors.stamp,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 4,
+    borderColor: colors.stamp,
+    backgroundColor: colors.paper,
     alignItems: "center",
     justifyContent: "center",
+    transform: [{ rotate: "-8deg" }],
     elevation: 4,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  checkInText: { color: colors.paper, fontSize: 18, fontWeight: "800" },
+  // 按下去像把章壓下：縮一點、轉正
+  checkInPressed: { transform: [{ rotate: "0deg" }, { scale: 0.94 }] },
+  checkInInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: colors.stamp,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkInText: { color: colors.stamp, fontSize: 21, fontFamily: fonts.ticket, letterSpacing: 1 },
   footer: {
     fontSize: 11,
     color: colors.muted,

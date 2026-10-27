@@ -210,7 +210,8 @@ const styles = StyleSheet.create({
   // 和首頁上方一樣的時刻表看板
   verdict: { backgroundColor: colors.board, borderRadius: 4, padding: 16, gap: 6 },
   verdictLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  verdictDot: { width: 10, height: 10, borderRadius: 5 },
+  // 深墨綠在看板上看不到，加一圈淺色邊
+  verdictDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: colors.boardText },
   verdictLabel: { fontSize: 13, color: colors.boardMuted },
   verdictValue: { fontSize: 32, color: colors.boardText, fontFamily: fonts.ticket },
   verdictNo: { color: colors.ticket },

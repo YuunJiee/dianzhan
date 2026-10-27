@@ -4,7 +4,7 @@ import MapView, { Marker, type Region } from "react-native-maps";
 
 import type { Reach, Station } from "../csa/types.ts";
 import { railwayMapStyle } from "./mapStyle.ts";
-import { colors, stayBuckets, stayColor, unreachableColor } from "./theme.ts";
+import { colors, stayBuckets, stayColor, unreachableColor, unreachableEdge } from "./theme.ts";
 
 type Props = {
   stations: Station[];
@@ -23,7 +23,7 @@ const zoomOf = (r: Region): Zoom => (r.latitudeDelta > 1.8 ? 0 : r.latitudeDelta
 const SIZES = {
   dot: [8, 11, 15],
   ring: [1, 1.5, 2],
-  faded: [4, 6, 9],
+  faded: [5, 7, 9],
   stamp: [9, 12, 16],
   origin: [12, 16, 20],
 } as const;
@@ -40,7 +40,14 @@ function dotStyle(look: Look, zoom: Zoom, visitedRing: boolean): ViewStyle {
       backgroundColor: colors.ticket,
     };
   }
-  if (look === "faded") return { ...circle(SIZES.faded[zoom]), backgroundColor: unreachableColor };
+  if (look === "faded") {
+    return {
+      ...circle(SIZES.faded[zoom]),
+      backgroundColor: unreachableColor,
+      borderWidth: 1,
+      borderColor: unreachableEdge,
+    };
+  }
   if (look === "stamp") {
     return {
       ...circle(SIZES.stamp[zoom]),
@@ -139,7 +146,13 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
 function LegendItem({ color, label, ring }: { color?: string; label: string; ring?: boolean }) {
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.legendDot, ring ? styles.legendVisited : { backgroundColor: color }]} />
+      <View
+        style={[
+          styles.legendDot,
+          ring ? styles.legendVisited : { backgroundColor: color },
+          color === unreachableColor && { borderWidth: 1, borderColor: unreachableEdge },
+        ]}
+      />
       <Text style={styles.legendText}>{label}</Text>
     </View>
   );
