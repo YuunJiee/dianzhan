@@ -1,11 +1,11 @@
-// 車站結果頁：可行時列出去程、回程與建議的前一班；不可行時說明差在哪（規格書 F1）
+// 車站結果頁：可行時列出去程、回程的可選班次，選好後顯示可停留時間與車票；不可行時說明差在哪（規格書 F1）
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { earlierInbound, explainInfeasible } from "../csa/csa.ts";
+import { DEFAULT_MIN_TRANSFER, explainInfeasible, inboundOptions, outboundOptions } from "../csa/csa.ts";
 import type { Journey, Leg, Options, Reach, Timetable } from "../csa/types.ts";
-import { formatDuration, formatTime } from "./format.ts";
+import { formatDuration, formatDurationShort, formatTime } from "./format.ts";
 import { colors, fonts, stayColor, unreachableColor } from "./theme.ts";
 import { Ticket } from "./Ticket.tsx";
 
@@ -21,7 +21,6 @@ type Props = {
 };
 
 export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount, nameOf, onClose }: Props) {
-  const earlier = useMemo(() => (reach ? earlierInbound(tt, opts, reach) : undefined), [tt, opts, reach]);
   const why = useMemo(
     () =>
       stationId && (!reach || reach.stayMinutes < minStay)
@@ -41,7 +40,7 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
               </Text>
               {visitCount > 0 && <Text style={styles.visited}>已到訪 {visitCount} 次</Text>}
               <Text style={styles.condition}>
-                {formatTime(opts.startTime)} 後出門・{formatTime(opts.endTime)} 前到家
+                最早 {formatTime(opts.startTime)} 出門・{formatTime(opts.endTime)} 前到家
                 {opts.unreservedOnly ? "・只搭區間車" : ""}
               </Text>
             </View>
@@ -52,48 +51,15 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
 
           <ScrollView contentContainerStyle={styles.body}>
             {reach ? (
-              <>
-                <View style={styles.verdict}>
-                  <View style={styles.verdictLabelRow}>
-                    <View
-                      style={[
-                        styles.verdictDot,
-                        {
-                          backgroundColor:
-                            reach.stayMinutes >= minStay ? stayColor(reach.stayMinutes) : unreachableColor,
-                        },
-                      ]}
-                    />
-                    <Text style={styles.verdictLabel}>
-                      {reach.stayMinutes >= minStay ? "可以當天來回，可停留" : "可以當天來回，但只能停留"}
-                    </Text>
-                  </View>
-                  <Text style={styles.verdictValue}>{formatDuration(reach.stayMinutes)}</Text>
-                  <Text style={styles.verdictSub}>
-                    {formatTime(reach.arrivalTime)} 抵達・{formatTime(reach.returnTime)} 搭回程
-                  </Text>
-                  {reach.stayMinutes < minStay && (
-                    <Text style={styles.reason}>
-                      少於你設定的至少停留 {formatDuration(minStay)}；
-                      {why?.leaveBy !== undefined
-                        ? `最晚 ${formatTime(why.leaveBy)} 出門，就能停留 ${formatDuration(minStay)} 以上。`
-                        : `就算提早出門也待不到 ${formatDuration(minStay)}。`}
-                    </Text>
-                  )}
-                </View>
-                <JourneyCard title="去程（最早抵達）" journey={reach.outbound} nameOf={nameOf} />
-                <JourneyCard title="回程（最晚一班）" journey={reach.inbound} nameOf={nameOf} />
-                {earlier ? (
-                  <JourneyCard
-                    title="建議搭前一班"
-                    note="錯過這班時，還有上面的最晚一班可以搭"
-                    journey={earlier}
-                    nameOf={nameOf}
-                  />
-                ) : (
-                  <Text style={styles.hint}>沒有更早回到家的班次，最晚一班就是唯一的回程，請預留時間。</Text>
-                )}
-              </>
+              <TripPlanner
+                key={`${stationId}-${opts.origin}-${opts.startTime}-${opts.endTime}-${opts.unreservedOnly}`}
+                tt={tt}
+                opts={opts}
+                reach={reach}
+                minStay={minStay}
+                leaveBy={why?.leaveBy}
+                nameOf={nameOf}
+              />
             ) : (
               why && (
                 <View style={styles.verdict}>
@@ -122,6 +88,146 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount,
         </View>
       )}
     </Modal>
+  );
+}
+
+// 可行時：去程、回程各一張班次表，選好的組合決定可停留時間
+function TripPlanner({
+  tt,
+  opts,
+  reach,
+  minStay,
+  leaveBy,
+  nameOf,
+}: {
+  tt: Timetable;
+  opts: Options;
+  reach: Reach;
+  minStay: number;
+  leaveBy?: number;
+  nameOf: (id: string) => string;
+}) {
+  const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
+  const outs = useMemo(
+    () => outboundOptions(tt, opts, reach.stationId, reach.returnTime - minTransfer),
+    [tt, opts, reach, minTransfer],
+  );
+  const ins = useMemo(
+    () => inboundOptions(tt, opts, reach.stationId, reach.arrivalTime + minTransfer),
+    [tt, opts, reach, minTransfer],
+  );
+  // 預設：最早抵達＋最晚回程（停留最久）
+  const [outIndex, setOutIndex] = useState(0);
+  const [inIndex, setInIndex] = useState(0);
+  const out = outs[outIndex] ?? reach.outbound;
+  const back = ins[inIndex] ?? reach.inbound;
+  const stay = back.dep - out.arr;
+  const best = reach.stayMinutes;
+
+  return (
+    <>
+      <View style={styles.verdict}>
+        <View style={styles.verdictLabelRow}>
+          <View
+            style={[styles.verdictDot, { backgroundColor: stay >= minStay ? stayColor(stay) : unreachableColor }]}
+          />
+          <Text style={styles.verdictLabel}>
+            {stay >= minStay ? "可以當天來回，可停留" : "可以當天來回，但只能停留"}
+          </Text>
+        </View>
+        <Text style={styles.verdictValue}>{formatDuration(stay)}</Text>
+        <Text style={styles.verdictSub}>
+          {formatTime(out.dep)} 出門・{formatTime(out.arr)} 抵達・{formatTime(back.dep)} 搭回程・{formatTime(back.arr)}{" "}
+          到家
+        </Text>
+        {stay < best && <Text style={styles.reason}>最多可以停留 {formatDuration(best)}（選最早到、最晚回）。</Text>}
+        {best < minStay && (
+          <Text style={styles.reason}>
+            少於你設定的至少停留 {formatDuration(minStay)}；
+            {leaveBy !== undefined
+              ? `最晚 ${formatTime(leaveBy)} 出門，就能停留 ${formatDuration(minStay)} 以上。`
+              : `就算提早出門也待不到 ${formatDuration(minStay)}。`}
+          </Text>
+        )}
+      </View>
+
+      <OptionTable
+        title="去程班次"
+        hint="越晚出門越晚到，選一班適合的"
+        options={outs}
+        selected={outIndex}
+        badges={["最早到"]}
+        // 來不及接上已選的回程，就不能選
+        disabled={(o) => o.arr + minTransfer > back.dep}
+        onSelect={setOutIndex}
+      />
+      <JourneyCard title="去程車票" journey={out} nameOf={nameOf} />
+
+      <OptionTable
+        title="回程班次"
+        hint="錯過「最晚」那班就回不了家，建議搭早一點的"
+        options={ins}
+        selected={inIndex}
+        badges={["最晚", "建議"]}
+        disabled={(o) => o.dep < out.arr + minTransfer}
+        onSelect={setInIndex}
+      />
+      <JourneyCard title="回程車票" journey={back} nameOf={nameOf} />
+    </>
+  );
+}
+
+// 班次表：像車站的時刻表，一列一個走法，點選後換成那一班
+function OptionTable({
+  title,
+  hint,
+  options,
+  selected,
+  badges,
+  disabled,
+  onSelect,
+}: {
+  title: string;
+  hint: string;
+  options: Journey[];
+  selected: number;
+  badges: string[]; // 依序標在前幾列
+  disabled: (option: Journey) => boolean;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <View style={styles.options}>
+      <View style={styles.journeyHeader}>
+        <Text style={styles.journeyTitle}>{title}</Text>
+        <Text style={styles.journeyMeta}>{hint}</Text>
+      </View>
+      <View style={styles.optionTable}>
+        {options.map((o, i) => {
+          const off = disabled(o);
+          const on = i === selected;
+          return (
+            <Pressable
+              key={`${o.dep}-${o.arr}`}
+              disabled={off}
+              onPress={() => onSelect(i)}
+              style={({ pressed }) => [styles.optionRow, on && styles.optionOn, pressed && styles.optionPressed]}
+              accessibilityState={{ selected: on, disabled: off }}
+            >
+              <Text style={[styles.optionTime, off && styles.optionOff]}>
+                {formatTime(o.dep)} → {formatTime(o.arr)}
+              </Text>
+              <Text style={[styles.optionMeta, off && styles.optionOff]}>
+                {formatDurationShort(o.arr - o.dep)}・{o.legs.length === 1 ? "直達" : `轉 ${o.legs.length - 1}`}
+              </Text>
+              <View style={styles.optionTags}>
+                {o.legs.some((l) => l.reserved) && <Text style={[styles.tag, off && styles.optionOff]}>對號</Text>}
+                {badges[i] && <Text style={[styles.badge, off && styles.optionOff]}>{badges[i]}</Text>}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -217,6 +323,32 @@ const styles = StyleSheet.create({
   verdictNo: { color: colors.ticket },
   verdictSub: { fontSize: 15, color: colors.boardText, fontVariant: ["tabular-nums"] },
   reason: { fontSize: 15, color: colors.boardText, lineHeight: 22 },
+  options: { gap: 6, marginTop: 10 },
+  optionTable: { borderWidth: 1, borderColor: colors.paperLine, borderRadius: 3, overflow: "hidden" },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.paperLine,
+    gap: 10,
+  },
+  optionOn: { backgroundColor: colors.ticket },
+  optionPressed: { opacity: 0.7 },
+  optionTime: { fontSize: 16, fontWeight: "600", color: colors.print, fontVariant: ["tabular-nums"] },
+  optionMeta: { fontSize: 13, color: colors.muted, fontVariant: ["tabular-nums"] },
+  optionOff: { color: colors.paperLine },
+  optionTags: { marginLeft: "auto", flexDirection: "row", gap: 6 },
+  tag: {
+    fontSize: 11,
+    color: colors.stamp,
+    borderWidth: 1,
+    borderColor: colors.stamp,
+    borderRadius: 2,
+    paddingHorizontal: 4,
+  },
+  badge: { fontSize: 11, color: colors.dateInk, fontWeight: "700" },
   journey: { gap: 8, marginTop: 6 },
   journeyHeader: {
     flexDirection: "row",

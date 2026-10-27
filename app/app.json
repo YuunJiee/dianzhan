@@ -40,6 +40,12 @@
           "backgroundColor": "#F1E9D8"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "681f3f0a-2dbd-479a-a6d3-c35ced92766b"
+      }
+    },
+    "owner": "yuunjiees-team"
   }
 }

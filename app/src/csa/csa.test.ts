@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
-import { computeReach, earlierInbound, earliestArrival, explainInfeasible, latestDeparture, parseTime } from "./csa.ts";
+import {
+  computeReach,
+  earlierInbound,
+  earliestArrival,
+  explainInfeasible,
+  inboundOptions,
+  latestDeparture,
+  outboundOptions,
+  parseTime,
+} from "./csa.ts";
 import type { Connection, Options, Timetable, Trip } from "./types.ts";
 
 const t = parseTime;
@@ -263,6 +272,33 @@ describe("真實時刻表", { skip: real ? false : "沒有 docs/data，先執行
         // 暴力法：在 inbound.dep 從車站出發，最早幾點到家
         const earliestHome = bruteEarliest(tt, { origin: r.stationId, startTime: r.inbound.dep, endTime: t("30:00") });
         assert.equal(r.inbound.arr, earliestHome.get(origin), `${r.stationId} → ${origin} 最早到家`);
+      }
+    }
+  });
+
+  test("班次選項：每個都不白等，越晚出門越晚到；第一個就是預設的去程／回程", () => {
+    // 暴力法很慢，抽 3 個出發站、每站 12 個目的地
+    for (const origin of origins.slice(0, 3)) {
+      const opts: Options = { origin, startTime: t("09:00"), endTime: t("18:00") };
+      for (const r of computeReach(tt, opts).filter((_, i) => i % 10 === 0).slice(0, 12)) {
+        const outs = outboundOptions(tt, opts, r.stationId, r.returnTime - 5);
+        assert.deepEqual(outs[0], r.outbound);
+        for (let i = 0; i < outs.length; i++) {
+          const o = outs[i];
+          if (i > 0) assert.ok(o.dep > outs[i - 1].dep && o.arr > outs[i - 1].arr, "越晚出門越晚到");
+          // 暴力法：同樣抵達時間下沒有更晚出門的；同樣出門時間下沒有更早到的
+          const latestLeave = bruteLatest(tt, { origin: r.stationId, startTime: opts.startTime, endTime: o.arr });
+          assert.equal(o.dep, latestLeave.get(origin), `${origin}→${r.stationId} 第 ${i + 1} 班最晚出門`);
+          const earliest = bruteEarliest(tt, { ...opts, startTime: o.dep, endTime: t("30:00") });
+          assert.equal(o.arr, earliest.get(r.stationId), `${origin}→${r.stationId} 第 ${i + 1} 班最早抵達`);
+        }
+
+        const ins = inboundOptions(tt, opts, r.stationId, r.arrivalTime + 5);
+        assert.deepEqual(ins[0], r.inbound);
+        assert.deepEqual(ins[1], earlierInbound(tt, opts, r));
+        for (let i = 1; i < ins.length; i++) {
+          assert.ok(ins[i].dep < ins[i - 1].dep && ins[i].arr < ins[i - 1].arr, "越早出發越早到家");
+        }
       }
     }
   });

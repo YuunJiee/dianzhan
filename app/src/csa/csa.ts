@@ -210,14 +210,60 @@ export function computeReach(tt: Timetable, opts: Options): Reach[] {
 }
 
 /**
- * 建議搭的前一班：比最晚回程「更早回到家」的最晚走法。
- * 錯過這班時，最晚回程仍可當備案；只在看單一車站時計算。
+ * 去程可選的班次，由早到晚：第一個是最早抵達，之後每一個都比前一個晚出門、也晚抵達。
+ * 每個都是「不白等」的走法——同樣的抵達時間下最晚出門，所以不會出現晚出門反而早到的組合。
+ * 只列出 latestArrival 之前抵達的（之後就趕不上回程了）。
+ */
+export function outboundOptions(
+  tt: Timetable,
+  opts: Options,
+  stationId: string,
+  latestArrival: number,
+  limit = 8,
+): Journey[] {
+  const options: Journey[] = [];
+  let start = opts.startTime;
+  while (options.length < limit) {
+    const from = { ...opts, startTime: start };
+    const ride = earliestArrival(tt, from, stationId).get(stationId);
+    if (!ride || ride.alight[4] > latestArrival) break;
+    const journey = lateStartOutbound(tt, from, stationId, ride.alight[4]);
+    options.push(journey);
+    start = journey.dep + 1;
+  }
+  return options;
+}
+
+/**
+ * 回程可選的班次，由晚到早：第一個是最晚出發，之後每一個都比前一個更早到家。
+ * 只列出 earliestDeparture 之後出發的（之前還沒到站）。
+ */
+export function inboundOptions(
+  tt: Timetable,
+  opts: Options,
+  stationId: string,
+  earliestDeparture: number,
+  limit = 8,
+): Journey[] {
+  const options: Journey[] = [];
+  let end = opts.endTime;
+  while (options.length < limit) {
+    const back = latestDeparture(tt, { ...opts, endTime: end }, stationId).get(stationId);
+    if (!back || back.dep < earliestDeparture) break;
+    const journey = earlyHomeInbound(tt, opts, stationId, back.dep);
+    options.push(journey);
+    end = journey.arr - 1;
+  }
+  return options;
+}
+
+/**
+ * 建議搭的前一班：比最晚回程「更早回到家」的最晚走法（回程選項的第二個）。
+ * 錯過這班時，最晚回程仍可當備案。
  */
 export function earlierInbound(tt: Timetable, opts: Options, reach: Reach): Journey | undefined {
   const minTransfer = opts.minTransfer ?? DEFAULT_MIN_TRANSFER;
-  const back = latestDeparture(tt, { ...opts, endTime: reach.inbound.arr - 1 }, reach.stationId).get(reach.stationId);
-  if (!back || back.dep - reach.arrivalTime < minTransfer) return undefined;
-  return earlyHomeInbound(tt, opts, reach.stationId, back.dep);
+  return inboundOptions(tt, opts, reach.stationId, reach.arrivalTime + minTransfer, 2)[1];
 }
 
 // 「整天」的時間範圍，用來找出時間範圍外的替代方案（跨午夜的車次可到 30:00）

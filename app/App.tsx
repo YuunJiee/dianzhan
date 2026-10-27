@@ -151,7 +151,7 @@ function App() {
 
         <View style={styles.timeRow}>
           <TimeStepper
-            label="出門"
+            label="最早出門"
             value={settings.startTime}
             onMinus={() => shiftTime("startTime", -TIME_STEP)}
             onPlus={() => shiftTime("startTime", TIME_STEP)}
