@@ -27,7 +27,10 @@ export function ReachList({ reach, nameOf, onSelect }: Props) {
       renderItem={({ item }) => {
         const transfers = item.outbound.legs.length - 1 + item.inbound.legs.length - 1;
         return (
-          <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => onSelect(item.stationId)}>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            onPress={() => onSelect(item.stationId)}
+          >
             <View style={styles.stay}>
               <View style={[styles.dot, { backgroundColor: stayColor(item.stayMinutes) }]} />
               <Text style={styles.stayText}>{formatDurationShort(item.stayMinutes)}</Text>

@@ -20,6 +20,7 @@ export const colors = {
   boardText: "#efe6d3",
   boardMuted: "#a39b88",
   paper: "#f1e9d8", // 和地圖底圖同色系的紙色
+  paperLight: "#f8f3e8", // 紙上的輸入框
   paperLine: "#ddd0b6",
 };
 
@@ -34,7 +35,7 @@ export const stayBuckets = [
   { min: 0, label: "少於 1 小時", color: "#e0662b" },
 ] as const;
 
-export const unreachableColor = "#c3c8d0";
+export const unreachableColor = "#b5aa95"; // 暖灰，放在紙色地圖上不突兀
 
 export function stayColor(stayMinutes: number | undefined): string {
   if (stayMinutes === undefined) return unreachableColor;

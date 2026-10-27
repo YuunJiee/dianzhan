@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import { useRef, useState } from "react";
+import { StyleSheet, Text, View, type ViewStyle } from "react-native";
+import MapView, { Marker, type Region } from "react-native-maps";
 
 import type { Reach, Station } from "../csa/types.ts";
 import { railwayMapStyle } from "./mapStyle.ts";
@@ -16,20 +17,78 @@ type Props = {
 
 const TAIWAN = { latitude: 23.75, longitude: 120.95, latitudeDelta: 3.6, longitudeDelta: 3.6 };
 
+// 依縮放程度決定點的大小：看全島時點要小才不會疊在一起，放大後才變大好點選
+type Zoom = 0 | 1 | 2;
+const zoomOf = (r: Region): Zoom => (r.latitudeDelta > 1.8 ? 0 : r.latitudeDelta > 0.5 ? 1 : 2);
+const SIZES = {
+  dot: [8, 11, 15],
+  ring: [1, 1.5, 2],
+  faded: [4, 6, 9],
+  stamp: [9, 12, 16],
+  origin: [12, 16, 20],
+} as const;
+
+type Look = "origin" | "stamp" | "faded" | string; // string = 可停留時間的顏色
+
+function dotStyle(look: Look, zoom: Zoom, visitedRing: boolean): ViewStyle {
+  const circle = (d: number): ViewStyle => ({ width: d, height: d, borderRadius: d / 2 });
+  if (look === "origin") {
+    return {
+      ...circle(SIZES.origin[zoom]),
+      borderWidth: zoom === 0 ? 3 : 4,
+      borderColor: colors.board,
+      backgroundColor: colors.ticket,
+    };
+  }
+  if (look === "faded") return { ...circle(SIZES.faded[zoom]), backgroundColor: unreachableColor };
+  if (look === "stamp") {
+    return {
+      ...circle(SIZES.stamp[zoom]),
+      borderWidth: SIZES.ring[zoom],
+      borderColor: colors.paper,
+      backgroundColor: colors.stamp,
+    };
+  }
+  return {
+    ...circle(SIZES.dot[zoom]),
+    backgroundColor: look,
+    borderWidth: visitedRing ? SIZES.ring[zoom] + 1.5 : SIZES.ring[zoom],
+    borderColor: visitedRing ? colors.stamp : colors.paper,
+  };
+}
+
 export function ReachMap({ stations, originId, reachById, visited, mode, onSelect }: Props) {
+  const map = useRef<MapView>(null);
+  const fitted = useRef(false);
+  const [zoom, setZoom] = useState<Zoom>(0);
+
+  // 開啟時讓本島剛好填滿畫面（所有車站都在本島上）
+  const fitIsland = () => {
+    if (fitted.current || stations.length === 0) return;
+    fitted.current = true;
+    map.current?.fitToCoordinates(
+      stations.map((s) => ({ latitude: s.lat, longitude: s.lng })),
+      { edgePadding: { top: 24, right: 24, bottom: 24, left: 24 }, animated: false },
+    );
+  };
+
   return (
     <View style={styles.container}>
       <MapView
+        ref={map}
         style={StyleSheet.absoluteFill}
         initialRegion={TAIWAN}
         toolbarEnabled={false}
         customMapStyle={railwayMapStyle}
+        minZoomLevel={6.5}
+        onMapReady={fitIsland}
+        onRegionChangeComplete={(r) => setZoom(zoomOf(r))}
       >
         {stations.map((s) => {
           const isOrigin = s.id === originId && mode === "reach";
           const reach = reachById.get(s.id);
           const isVisited = visited.has(s.id);
-          const look = isOrigin
+          const look: Look = isOrigin
             ? "origin"
             : mode === "collection"
               ? isVisited
@@ -37,31 +96,20 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
                 : "faded"
               : reach
                 ? stayColor(reach.stayMinutes)
-                : "unreachable";
+                : "faded";
+          const ring = mode === "reach" && isVisited && look !== "origin" && look !== "faded";
           return (
             <Marker
-              // 外觀改變時換 key，讓 Android 重新畫 marker
-              key={`${s.id}-${look}-${isVisited ? "v" : ""}`}
+              // 外觀或縮放改變時換 key，讓 Android 重新畫 marker
+              key={`${s.id}-${look}-${ring ? "v" : ""}-${zoom}`}
               coordinate={{ latitude: s.lat, longitude: s.lng }}
               title={s.name}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
               onPress={() => !isOrigin && onSelect(s.id)}
-              zIndex={isOrigin ? 3 : reach || (mode === "collection" && isVisited) ? 2 : 1}
+              zIndex={isOrigin ? 3 : look === "faded" ? 1 : 2}
             >
-              <View
-                style={[
-                  styles.dot,
-                  look === "origin"
-                    ? styles.origin
-                    : look === "stamp"
-                      ? styles.stamp
-                      : look === "faded" || look === "unreachable"
-                        ? styles.unreachable
-                        : { backgroundColor: look },
-                  mode === "reach" && isVisited && !isOrigin && styles.visitedRing,
-                ]}
-              />
+              <View style={dotStyle(look, zoom, ring)} />
             </Marker>
           );
         })}
@@ -100,32 +148,20 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: "#fff" },
-  unreachable: { width: 9, height: 9, borderRadius: 4.5, borderWidth: 1, backgroundColor: unreachableColor },
-  stamp: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: "#fff", backgroundColor: colors.stamp },
-  visitedRing: { borderColor: colors.stamp, borderWidth: 3 },
-  legendVisited: { backgroundColor: "#fff", borderWidth: 2.5, borderColor: colors.stamp },
-  origin: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 4,
-    borderColor: colors.board,
-    backgroundColor: colors.ticket,
-  },
+  container: { flex: 1, backgroundColor: colors.paper },
   legend: {
     position: "absolute",
     left: 10,
     bottom: 10,
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(246,239,225,0.94)",
+    borderRadius: 3,
+    backgroundColor: colors.paper,
     borderWidth: 1,
-    borderColor: "#d8c9a8",
+    borderColor: colors.paperLine,
     gap: 3,
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: colors.ink },
+  legendVisited: { backgroundColor: colors.paper, borderWidth: 2.5, borderColor: colors.stamp },
+  legendText: { fontSize: 12, color: colors.print },
 });

@@ -2,13 +2,14 @@ import { useFonts } from "expo-font";
 import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DATABASE_NAME, migrate } from "./src/checkins/db.ts";
 import { useCheckIns } from "./src/checkins/useCheckIns.ts";
 import { computeReach } from "./src/csa/csa.ts";
 import type { Options } from "./src/csa/types.ts";
 import { useCatalog, useTimetable } from "./src/data/useData.ts";
+import { DatePicker } from "./src/ui/DatePicker.tsx";
 import { Flap, FlapText } from "./src/ui/Flap.tsx";
 import { dateParts, formatTime, today } from "./src/ui/format.ts";
 import { ReachList } from "./src/ui/ReachList.tsx";
@@ -62,6 +63,7 @@ function App() {
   const date = pickedDate && dates.includes(pickedDate) ? pickedDate : dates[0];
   const [view, setView] = useState<(typeof TABS)[number]["key"]>("map");
   const [picking, setPicking] = useState<"origin" | "destination" | undefined>();
+  const [pickingDate, setPickingDate] = useState(false);
   const [selected, setSelected] = useState<string | undefined>();
 
   const timetable = useTimetable(catalog.value, date);
@@ -105,7 +107,7 @@ function App() {
   if (!loaded || !catalog.value || !tt) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.print} />
         <Text style={styles.loadingText}>正在下載時刻表…</Text>
       </View>
     );
@@ -128,19 +130,24 @@ function App() {
           </Pressable>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dates}>
-          {dates.map((d) => {
-            const { md, weekday } = dateParts(d);
-            return (
-              <Flap key={d} on={d === date} onPress={() => setDate(d)} style={styles.dateTile}>
-                <FlapText on={d === date}>{md}</FlapText>
-                <FlapText on={d === date} style={styles.weekday}>
-                  {weekday}
-                </FlapText>
-              </Flap>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.dateRow}>
+          <Pressable onPress={() => setPickingDate(true)} accessibilityRole="button" accessibilityLabel="選擇乘車日期">
+            <Flap style={styles.dateTile}>
+              <FlapText style={styles.dateText}>
+                {dateParts(date).md}（{dateParts(date).weekday}）▾
+              </FlapText>
+            </Flap>
+          </Pressable>
+          <View style={styles.localToggle}>
+            <Text style={styles.localLabel}>只搭區間車</Text>
+            <Switch
+              value={settings.unreservedOnly}
+              onValueChange={(v) => updateSettings({ unreservedOnly: v })}
+              trackColor={{ true: colors.ticketEdge, false: colors.boardTile }}
+              thumbColor={settings.unreservedOnly ? colors.ticket : colors.boardMuted}
+            />
+          </View>
+        </View>
 
         <View style={styles.timeRow}>
           <TimeStepper
@@ -155,15 +162,6 @@ function App() {
             onMinus={() => shiftTime("endTime", -TIME_STEP)}
             onPlus={() => shiftTime("endTime", TIME_STEP)}
           />
-          <View style={styles.localToggle}>
-            <Text style={styles.localLabel}>只搭區間車</Text>
-            <Switch
-              value={settings.unreservedOnly}
-              onValueChange={(v) => updateSettings({ unreservedOnly: v })}
-              trackColor={{ true: colors.ticketEdge, false: colors.boardTile }}
-              thumbColor={settings.unreservedOnly ? colors.ticket : colors.boardMuted}
-            />
-          </View>
         </View>
 
         <View style={styles.minStayRow}>
@@ -235,6 +233,14 @@ function App() {
           else setSelected(s.id);
           setPicking(undefined);
         }}
+      />
+
+      <DatePicker
+        visible={pickingDate}
+        dates={dates}
+        selected={date}
+        onSelect={setDate}
+        onClose={() => setPickingDate(false)}
       />
 
       <CheckInSheet
@@ -313,19 +319,26 @@ function TimeStepper({
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    gap: 8,
+    backgroundColor: colors.paper,
+  },
   loadingText: { fontSize: 14, color: colors.muted },
   errorTitle: { fontSize: 18, fontWeight: "700", color: colors.ink },
   errorText: { fontSize: 15, color: colors.ink },
   errorDetail: { fontSize: 12, color: colors.muted, textAlign: "center" },
   retryButton: {
     marginTop: 12,
-    backgroundColor: colors.accent,
-    borderRadius: 8,
+    backgroundColor: colors.board,
+    borderRadius: 3,
     paddingHorizontal: 24,
     paddingVertical: 10,
   },
-  retryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  retryText: { color: colors.boardText, fontSize: 16, fontWeight: "600" },
   container: { flex: 1, backgroundColor: colors.paper },
   // 上方：車站的翻牌式時刻表看板
   header: { backgroundColor: colors.board, paddingTop: 48, paddingBottom: 14, gap: 12 },
@@ -341,9 +354,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   destText: { color: colors.boardText, fontSize: 14 },
-  dates: { paddingHorizontal: 16, gap: 5 },
-  dateTile: { width: 54, paddingVertical: 6 },
-  weekday: { fontSize: 12, fontWeight: "400", marginTop: 3 },
+  dateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
+  dateTile: { paddingHorizontal: 12, paddingVertical: 7 },
+  dateText: { fontSize: 18, fontWeight: "700" },
   timeRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 18 },
   stepper: { gap: 4 },
   stepperLabel: { fontSize: 12, color: colors.boardMuted },
@@ -362,7 +375,7 @@ const styles = StyleSheet.create({
   timeTile: { paddingHorizontal: 5, paddingVertical: 3 },
   timeDigits: { fontSize: 20, fontWeight: "700" },
   timeColon: { color: colors.boardText, fontSize: 18, fontWeight: "700" },
-  localToggle: { marginLeft: "auto", alignItems: "center" },
+  localToggle: { flexDirection: "row", alignItems: "center", gap: 6 },
   localLabel: { fontSize: 12, color: colors.boardMuted },
   minStayRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 5 },
   minStayLabel: { fontSize: 12, color: colors.boardMuted, marginRight: 4 },

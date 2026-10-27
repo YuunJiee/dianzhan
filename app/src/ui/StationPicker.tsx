@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { Station } from "../csa/types.ts";
-import { colors } from "./theme.ts";
+import { colors, fonts } from "./theme.ts";
 
 type Props = {
   visible: boolean;
@@ -63,20 +63,27 @@ export function StationPicker({ visible, title, stations, onSelect, onClose }: P
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.surface, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: colors.paper, paddingTop: 48 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
-  title: { fontSize: 20, fontWeight: "700", color: colors.ink },
-  close: { fontSize: 16, color: colors.accent },
+  title: { fontSize: 20, fontWeight: "700", color: colors.print },
+  close: { fontSize: 16, color: colors.print },
   search: {
     margin: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: colors.background,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: colors.paperLine,
+    backgroundColor: colors.paperLight,
     fontSize: 16,
   },
-  row: { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
-  pressed: { backgroundColor: colors.accentSoft },
-  name: { fontSize: 17, color: colors.ink },
+  row: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.paperLine,
+  },
+  pressed: { backgroundColor: colors.ticket },
+  name: { fontSize: 19, color: colors.print, fontFamily: fonts.ticket, letterSpacing: 2 },
   empty: { padding: 20, color: colors.muted },
 });

@@ -12,7 +12,7 @@ type Props = {
   style?: ViewStyle;
 };
 
-export function Ticket({ children, stub, notchColor = colors.surface, style }: Props) {
+export function Ticket({ children, stub, notchColor = colors.paper, style }: Props) {
   return (
     <View style={[styles.ticket, style]}>
       <View style={styles.main}>
@@ -61,7 +61,14 @@ const styles = StyleSheet.create({
     borderColor: colors.ticketEdge,
   },
   stub: { alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-  notch: { position: "absolute", top: "50%", marginTop: -NOTCH / 2, width: NOTCH, height: NOTCH, borderRadius: NOTCH / 2 },
+  notch: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -NOTCH / 2,
+    width: NOTCH,
+    height: NOTCH,
+    borderRadius: NOTCH / 2,
+  },
   notchLeft: { left: -NOTCH / 2 },
   notchRight: { right: -NOTCH / 2 },
 });

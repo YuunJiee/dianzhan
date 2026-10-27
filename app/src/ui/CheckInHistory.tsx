@@ -99,7 +99,7 @@ export function CheckInHistory({ visible, checkIns, stationIds, nameOf, onDelete
           renderItem={({ item }) => (
             <Pressable onLongPress={() => confirmDelete(item)} style={({ pressed }) => pressed && styles.pressed}>
               <Ticket
-                notchColor={colors.background}
+                notchColor={colors.paper}
                 stub={
                   <View style={{ transform: [{ rotate: `${stampAngle(item.stationId)}deg` }], opacity: 0.9 }}>
                     <StationStamp name={nameOf(item.stationId)} size={58} />
@@ -123,21 +123,20 @@ export function CheckInHistory({ visible, checkIns, stationIds, nameOf, onDelete
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: colors.paper, paddingTop: 48 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
-  title: { fontSize: 22, fontWeight: "700", color: colors.ink },
-  link: { fontSize: 16, color: colors.accent },
+  title: { fontSize: 22, fontWeight: "700", color: colors.print },
+  link: { fontSize: 16, color: colors.print },
   actions: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
   action: {
     flex: 1,
     borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 10,
+    borderColor: colors.print,
+    borderRadius: 3,
     paddingVertical: 10,
     alignItems: "center",
-    backgroundColor: colors.surface,
   },
-  actionText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+  actionText: { color: colors.print, fontSize: 15, fontWeight: "600" },
   disabled: { color: colors.muted },
   hint: { fontSize: 12, color: colors.muted, paddingHorizontal: 20, paddingVertical: 10 },
   listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
