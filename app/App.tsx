@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   loadingText: { fontSize: 14, color: colors.muted },
-  errorTitle: { fontSize: 18, fontWeight: "700", color: colors.ink },
-  errorText: { fontSize: 15, color: colors.ink },
+  errorTitle: { fontSize: 18, fontWeight: "700", color: colors.print },
+  errorText: { fontSize: 15, color: colors.print },
   errorDetail: { fontSize: 12, color: colors.muted, textAlign: "center" },
   retryButton: {
     marginTop: 12,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  checkInText: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  checkInText: { color: colors.paper, fontSize: 18, fontWeight: "800" },
   footer: {
     fontSize: 11,
     color: colors.muted,

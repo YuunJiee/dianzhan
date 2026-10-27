@@ -1,13 +1,5 @@
 export const colors = {
-  ink: "#1d2430",
-  muted: "#667085",
-  line: "#e4e7ec",
-  surface: "#ffffff",
-  background: "#f5f6f8",
-  accent: "#1f4e8c", // 台鐵藍
-  accentSoft: "#e8eef7",
-  reserved: "#b54708", // 對號車
-  danger: "#b42318",
+  muted: "#7a705f", // 次要文字（暖灰，配紙色）
   stamp: "#b8322a", // 站章朱：去過的車站、紀念章
   ticket: "#eed3bf", // 名片式硬票的紙色
   ticketEdge: "#d9b89f",
