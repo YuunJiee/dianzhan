@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
-import MapView, { Marker, type Region } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 
 import type { Reach, Station } from "../csa/types.ts";
 import { railwayMapStyle } from "./mapStyle.ts";
@@ -84,6 +84,7 @@ export function ReachMap({ stations, originId, reachById, visited, mode, onSelec
     <View style={styles.container}>
       <MapView
         ref={map}
+        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
         initialRegion={TAIWAN}
         toolbarEnabled={false}
