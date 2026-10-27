@@ -8,6 +8,7 @@ export const colors = {
   accentSoft: "#e8eef7",
   reserved: "#b54708", // 對號車
   danger: "#b42318",
+  stamp: "#c0392b", // 站章朱紅：去過的車站
 };
 
 // 可停留時間的上色分級（規格書 F1）

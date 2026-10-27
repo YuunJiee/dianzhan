@@ -1,13 +1,17 @@
+import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import { DATABASE_NAME, migrate } from "./src/checkins/db.ts";
+import { useCheckIns } from "./src/checkins/useCheckIns.ts";
 import { computeReach } from "./src/csa/csa.ts";
 import type { Options } from "./src/csa/types.ts";
 import { useCatalog, useTimetable } from "./src/data/useData.ts";
 import { formatDate, formatTime, today } from "./src/ui/format.ts";
 import { ReachList } from "./src/ui/ReachList.tsx";
 import { ReachMap } from "./src/ui/ReachMap.tsx";
+import { CheckInSheet } from "./src/ui/CheckInSheet.tsx";
 import { StationDetail } from "./src/ui/StationDetail.tsx";
 import { StationPicker } from "./src/ui/StationPicker.tsx";
 import { colors } from "./src/ui/theme.ts";
@@ -17,8 +21,24 @@ const TIME_STEP = 30;
 const DATE_RANGE_DAYS = 30; // 只顯示一個月內的日期，和台鐵開放訂票的範圍相當
 const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 
-export default function App() {
+export default function Root() {
+  return (
+    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrate}>
+      <App />
+    </SQLiteProvider>
+  );
+}
+
+const TABS = [
+  { key: "map", label: "地圖" },
+  { key: "list", label: "清單" },
+  { key: "collection", label: "集站" },
+] as const;
+
+function App() {
   const catalog = useCatalog();
+  const { visits, lastCompanions, checkIn } = useCheckIns();
+  const [checkingIn, setCheckingIn] = useState(false);
   const stations = catalog.value?.stations ?? [];
   const nameById = useMemo(() => new Map(stations.map((s) => [s.id, s.name])), [stations]);
   const nameOf = (id: string) => nameById.get(id) ?? id;
@@ -32,7 +52,7 @@ export default function App() {
   const [settings, updateSettings, loaded] = useSettings();
   const [pickedDate, setDate] = useState<string | undefined>();
   const date = pickedDate && dates.includes(pickedDate) ? pickedDate : dates[0];
-  const [view, setView] = useState<"map" | "list">("map");
+  const [view, setView] = useState<(typeof TABS)[number]["key"]>("map");
   const [picking, setPicking] = useState<"origin" | "destination" | undefined>();
   const [selected, setSelected] = useState<string | undefined>();
 
@@ -149,24 +169,40 @@ export default function App() {
       </View>
 
       <View style={styles.summaryRow}>
-        <Text style={styles.summary}>
-          可當天來回 {reach.length} 站{timetable.loading ? "（更新中…）" : ""}
-        </Text>
+        {view === "collection" ? (
+          <Text style={styles.summary}>
+            已點亮 <Text style={styles.stampCount}>{visits.size}</Text> / {stations.length} 站
+          </Text>
+        ) : (
+          <Text style={styles.summary}>
+            可當天來回 {reach.length} 站{timetable.loading ? "（更新中…）" : ""}
+          </Text>
+        )}
         <View style={styles.tabs}>
-          {(["map", "list"] as const).map((v) => (
-            <Pressable key={v} onPress={() => setView(v)} style={[styles.tab, view === v && styles.tabOn]}>
-              <Text style={[styles.tabText, view === v && styles.tabTextOn]}>{v === "map" ? "地圖" : "清單"}</Text>
+          {TABS.map((t) => (
+            <Pressable key={t.key} onPress={() => setView(t.key)} style={[styles.tab, view === t.key && styles.tabOn]}>
+              <Text style={[styles.tabText, view === t.key && styles.tabTextOn]}>{t.label}</Text>
             </Pressable>
           ))}
         </View>
       </View>
 
       <View style={styles.content}>
-        {view === "map" ? (
-          <ReachMap stations={stations} originId={settings.homeStationId} reachById={reachById} onSelect={setSelected} />
-        ) : (
+        {view === "list" ? (
           <ReachList reach={reach} nameOf={nameOf} onSelect={setSelected} />
+        ) : (
+          <ReachMap
+            stations={stations}
+            originId={settings.homeStationId}
+            reachById={reachById}
+            visited={visits}
+            mode={view === "map" ? "reach" : "collection"}
+            onSelect={setSelected}
+          />
         )}
+        <Pressable onPress={() => setCheckingIn(true)} style={styles.checkInButton}>
+          <Text style={styles.checkInText}>打卡</Text>
+        </Pressable>
       </View>
 
       <Text style={styles.footer}>
@@ -188,12 +224,24 @@ export default function App() {
         }}
       />
 
+      <CheckInSheet
+        visible={checkingIn}
+        stations={stations}
+        visits={visits}
+        lastCompanions={lastCompanions}
+        onConfirm={async (input) => {
+          await checkIn(input);
+        }}
+        onClose={() => setCheckingIn(false)}
+      />
+
       <StationDetail
         stationId={selected}
         tt={tt}
         opts={opts}
         reach={selected ? allById.get(selected) : undefined}
         minStay={settings.minStay}
+        visitCount={selected ? (visits.get(selected) ?? 0) : 0}
         nameOf={nameOf}
         onClose={() => setSelected(undefined)}
       />
@@ -282,5 +330,23 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, color: colors.muted },
   tabTextOn: { color: colors.ink, fontWeight: "600" },
   content: { flex: 1 },
+  stampCount: { color: colors.stamp, fontWeight: "800" },
+  checkInButton: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.stamp,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  checkInText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   footer: { fontSize: 11, color: colors.muted, textAlign: "center", paddingVertical: 6, paddingBottom: 18 },
 });

@@ -14,11 +14,12 @@ type Props = {
   opts: Options;
   reach: Reach | undefined;
   minStay: number;
+  visitCount: number;
   nameOf: (id: string) => string;
   onClose: () => void;
 };
 
-export function StationDetail({ stationId, tt, opts, reach, minStay, nameOf, onClose }: Props) {
+export function StationDetail({ stationId, tt, opts, reach, minStay, visitCount, nameOf, onClose }: Props) {
   const earlier = useMemo(() => (reach ? earlierInbound(tt, opts, reach) : undefined), [tt, opts, reach]);
   const why = useMemo(
     () =>
@@ -35,6 +36,7 @@ export function StationDetail({ stationId, tt, opts, reach, minStay, nameOf, onC
               <Text style={styles.route}>
                 {nameOf(opts.origin)} → {nameOf(stationId)}
               </Text>
+              {visitCount > 0 && <Text style={styles.visited}>已到訪 {visitCount} 次</Text>}
               <Text style={styles.condition}>
                 {formatTime(opts.startTime)} 後出門・{formatTime(opts.endTime)} 前到家
                 {opts.unreservedOnly ? "・只搭區間車" : ""}
@@ -164,6 +166,7 @@ const styles = StyleSheet.create({
   },
   route: { fontSize: 22, fontWeight: "700", color: colors.ink },
   condition: { fontSize: 13, color: colors.muted, marginTop: 4 },
+  visited: { fontSize: 13, color: colors.stamp, fontWeight: "700", marginTop: 4 },
   close: { fontSize: 16, color: colors.accent, marginTop: 4 },
   body: { padding: 16, gap: 12, paddingBottom: 40 },
   verdict: { backgroundColor: colors.surface, borderRadius: 12, borderLeftWidth: 6, padding: 16, gap: 4 },

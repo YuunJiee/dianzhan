@@ -21,6 +21,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "點站需要你的位置，確認你在車站附近才能打卡。"
+        }
+      ]
+    ]
   }
 }
