@@ -156,7 +156,8 @@ def main() -> None:
         print(f"{d}: {len(timetable['trips'])} 車次、{len(timetable['connections'])} 筆連結 → {index[d]}")
 
     write_json(OUT / "stations.json", build_stations(raw_stations, served))
-    write_json(OUT / "index.json", {"source": "交通部 TDX 運輸資料流通服務", "dates": index})
+    updated_at = datetime.now(TAIPEI).isoformat(timespec="minutes")
+    write_json(OUT / "index.json", {"source": "交通部 TDX 運輸資料流通服務", "updatedAt": updated_at, "dates": index})
     print(f"共 {len(served)} 站、{len(dates)} 天、{len(set(index.values()))} 份不同的時刻表")
 
 

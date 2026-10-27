@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Vie
 
 import { computeReach } from "./src/csa/csa.ts";
 import type { Options } from "./src/csa/types.ts";
-import { dataSource, getDates, getStations, getTimetable } from "./src/data/index.ts";
+import { useCatalog, useTimetable } from "./src/data/useData.ts";
 import { formatDate, formatTime, today } from "./src/ui/format.ts";
 import { ReachList } from "./src/ui/ReachList.tsx";
 import { ReachMap } from "./src/ui/ReachMap.tsx";
@@ -18,23 +18,26 @@ const DATE_RANGE_DAYS = 30; // 只顯示一個月內的日期，和台鐵開放�
 const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 
 export default function App() {
-  const stations = useMemo(() => getStations(), []);
+  const catalog = useCatalog();
+  const stations = catalog.value?.stations ?? [];
   const nameById = useMemo(() => new Map(stations.map((s) => [s.id, s.name])), [stations]);
   const nameOf = (id: string) => nameById.get(id) ?? id;
 
   const dates = useMemo(() => {
-    const all = getDates();
+    const all = Object.keys(catalog.value?.index.dates ?? {}).sort();
     const upcoming = all.filter((d) => d >= today() && d <= today(DATE_RANGE_DAYS));
     return upcoming.length > 0 ? upcoming : all;
-  }, []);
+  }, [catalog.value]);
 
   const [settings, updateSettings, loaded] = useSettings();
-  const [date, setDate] = useState(dates[0]);
+  const [pickedDate, setDate] = useState<string | undefined>();
+  const date = pickedDate && dates.includes(pickedDate) ? pickedDate : dates[0];
   const [view, setView] = useState<"map" | "list">("map");
   const [picking, setPicking] = useState<"origin" | "destination" | undefined>();
   const [selected, setSelected] = useState<string | undefined>();
 
-  const tt = getTimetable(date);
+  const timetable = useTimetable(catalog.value, date);
+  const tt = timetable.value;
   const opts: Options = useMemo(
     () => ({
       origin: settings.homeStationId,
@@ -57,13 +60,30 @@ export default function App() {
     updateSettings({ [key]: next });
   };
 
-  if (!loaded || !tt) {
+  const error = catalog.error ?? (tt ? undefined : timetable.error);
+  if (error) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} />
+        <Text style={styles.errorTitle}>無法取得時刻表資料</Text>
+        <Text style={styles.errorText}>請確認網路連線後再試一次。</Text>
+        <Text style={styles.errorDetail}>{error}</Text>
+        <Pressable onPress={catalog.retry} style={styles.retryButton}>
+          <Text style={styles.retryText}>重試</Text>
+        </Pressable>
       </View>
     );
   }
+
+  if (!loaded || !catalog.value || !tt) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={styles.loadingText}>正在下載時刻表…</Text>
+      </View>
+    );
+  }
+
+  const { index, offline } = catalog.value;
 
   return (
     <View style={styles.container}>
@@ -129,7 +149,9 @@ export default function App() {
       </View>
 
       <View style={styles.summaryRow}>
-        <Text style={styles.summary}>可當天來回 {reach.length} 站</Text>
+        <Text style={styles.summary}>
+          可當天來回 {reach.length} 站{timetable.loading ? "（更新中…）" : ""}
+        </Text>
         <View style={styles.tabs}>
           {(["map", "list"] as const).map((v) => (
             <Pressable key={v} onPress={() => setView(v)} style={[styles.tab, view === v && styles.tabOn]}>
@@ -147,7 +169,12 @@ export default function App() {
         )}
       </View>
 
-      <Text style={styles.footer}>資料來源：{dataSource}｜非台鐵官方服務，時刻以台鐵公告為準</Text>
+      <Text style={styles.footer}>
+        資料來源：{index.source}
+        {index.updatedAt ? `・${formatUpdatedAt(index.updatedAt)} 更新` : ""}
+        {offline ? "（離線，使用上次下載的資料）" : ""}
+        {"\n"}非台鐵官方服務，時刻以台鐵公告為準
+      </Text>
 
       <StationPicker
         visible={picking !== undefined}
@@ -174,6 +201,13 @@ export default function App() {
   );
 }
 
+// "2026-10-27T02:31+08:00" → 「10/27 02:31」
+function formatUpdatedAt(iso: string): string {
+  const [day, time] = iso.split("T");
+  const [, m, d] = day.split("-").map(Number);
+  return `${m}/${d} ${time.slice(0, 5)}`;
+}
+
 function TimeStepper({ label, value, onMinus, onPlus }: { label: string; value: number; onMinus: () => void; onPlus: () => void }) {
   return (
     <View style={styles.stepper}>
@@ -192,7 +226,13 @@ function TimeStepper({ label, value, onMinus, onPlus }: { label: string; value: 
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
+  loadingText: { fontSize: 14, color: colors.muted },
+  errorTitle: { fontSize: 18, fontWeight: "700", color: colors.ink },
+  errorText: { fontSize: 15, color: colors.ink },
+  errorDetail: { fontSize: 12, color: colors.muted, textAlign: "center" },
+  retryButton: { marginTop: 12, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   container: { flex: 1, backgroundColor: colors.background },
   header: { backgroundColor: colors.accent, paddingTop: 48, paddingBottom: 12, gap: 10 },
   originRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingHorizontal: 16 },

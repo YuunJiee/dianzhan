@@ -40,6 +40,3 @@ yarn-error.*
 /ios
 /android
 
-# 由 scripts/sync-data.ts 產生
-/assets/data/
-/src/data/bundled.ts
