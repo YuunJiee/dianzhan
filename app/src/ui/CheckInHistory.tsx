@@ -1,6 +1,5 @@
 // 打卡紀錄：新的在前，長按刪除；可匯出／匯入 JSON 備份（規格書 F2）
 
-import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -43,10 +42,11 @@ export function CheckInHistory({ visible, checkIns, stationIds, nameOf, onDelete
 
   const importBackup = async () => {
     try {
+      // 用 expo-file-system 自己的選擇器，選到的檔案才有讀取權限（expo-document-picker 在 Expo Go 會被拒絕讀取）。
       // 不限檔案類型：Android 的檔案管理員常把 .json 標成其他類型，內容由 parseBackupJson 檢查
-      const picked = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
+      const picked = await File.pickFileAsync();
       if (picked.canceled) return;
-      const text = await new File(picked.assets[0].uri).text();
+      const text = await picked.result.text();
       const { checkIns: records, skipped } = parseBackupJson(text, stationIds);
       const added = await onImport(records);
       const duplicates = records.length - added;
