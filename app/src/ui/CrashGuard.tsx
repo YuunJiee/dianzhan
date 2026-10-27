@@ -1,8 +1,9 @@
 // 當機防護：畫面出錯時顯示錯誤內容而不是直接閃退；其他未處理的錯誤先存起來，下次開啟時顯示。
 // 打包後的 App 沒有開發模式的紅色錯誤畫面，靠這個才看得到出了什麼事。
+// 存取都用同步的 kv-store：當機當下不能等非同步寫入，開啟時也不能等讀取而卡住畫面。
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Component, type ReactNode, useEffect, useState } from "react";
+import { Storage } from "expo-sqlite/kv-store";
+import { Component, type ReactNode, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const KEY = "lastCrash";
@@ -10,7 +11,7 @@ const KEY = "lastCrash";
 type ErrorHandler = (error: unknown, isFatal?: boolean) => void;
 type ErrorUtilsLike = { getGlobalHandler: () => ErrorHandler; setGlobalHandler: (h: ErrorHandler) => void };
 
-const describe = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}\n\n${e.stack ?? ""}` : String(e));
+export const describeError = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}\n\n${e.stack ?? ""}` : String(e));
 
 /** 在 App 載入前呼叫：攔下未處理的錯誤，先存起來再交給原本的處理（會關閉 App）。 */
 export function installCrashRecorder(): void {
@@ -18,14 +19,16 @@ export function installCrashRecorder(): void {
   if (!errorUtils) return;
   const previous = errorUtils.getGlobalHandler();
   errorUtils.setGlobalHandler((error, isFatal) => {
-    const record = `${new Date().toISOString()}${isFatal ? "（致命）" : ""}\n${describe(error)}`;
-    AsyncStorage.setItem(KEY, record)
-      .catch(() => {})
-      .finally(() => previous(error, isFatal));
+    try {
+      Storage.setItemSync(KEY, `${new Date().toISOString()}${isFatal ? "（致命）" : ""}\n${describeError(error)}`);
+    } catch {
+      // 連存都失敗就算了，照原本的方式處理
+    }
+    previous(error, isFatal);
   });
 }
 
-function ErrorScreen({ title, detail, onDismiss }: { title: string; detail: string; onDismiss?: () => void }) {
+export function ErrorScreen({ title, detail, onDismiss }: { title: string; detail: string; onDismiss?: () => void }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
@@ -54,7 +57,7 @@ export class CrashBoundary extends Component<{ children: ReactNode }, { error?: 
 
   render() {
     if (this.state.error !== undefined) {
-      return <ErrorScreen title="畫面發生錯誤" detail={describe(this.state.error)} />;
+      return <ErrorScreen title="畫面發生錯誤" detail={describeError(this.state.error)} />;
     }
     return this.props.children;
   }
@@ -62,21 +65,25 @@ export class CrashBoundary extends Component<{ children: ReactNode }, { error?: 
 
 /** 上次開啟時如果當機過，先顯示當時的錯誤，看完再進 App。 */
 export function LastCrashNotice({ children }: { children: ReactNode }) {
-  const [crash, setCrash] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    AsyncStorage.getItem(KEY)
-      .then(setCrash)
-      .catch(() => setCrash(null));
-  }, []);
+  const [crash, setCrash] = useState<string | null>(() => {
+    try {
+      return Storage.getItemSync(KEY);
+    } catch {
+      return null;
+    }
+  });
 
-  if (crash === undefined) return null;
   if (crash) {
     return (
       <ErrorScreen
         title="上次開啟時發生錯誤"
         detail={crash}
         onDismiss={() => {
-          AsyncStorage.removeItem(KEY).catch(() => {});
+          try {
+            Storage.removeItemSync(KEY);
+          } catch {
+            // 刪不掉下次會再顯示一次，不影響使用
+          }
           setCrash(null);
         }}
       />

@@ -1,7 +1,7 @@
 import { useFonts } from "expo-font";
 import { SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 import { DATABASE_NAME, migrate } from "./src/checkins/db.ts";
@@ -28,7 +28,13 @@ const MIN_STAY_OPTIONS = [30, 60, 120, 180, 240];
 export default function Root() {
   // 車票與站章用的明體（缺字時自動改用系統字型）
   const [fontsLoaded, fontError] = useFonts({ [fonts.ticket]: require("./assets/fonts/TicketSerif.ttf") });
-  if (!fontsLoaded && !fontError) return null;
+  // 字型最多等 3 秒，載不到就先用系統字型，不讓畫面卡住
+  const [fontTimeout, setFontTimeout] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setFontTimeout(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!fontsLoaded && !fontError && !fontTimeout) return <View style={styles.loading} />;
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrate}>
       <App />
